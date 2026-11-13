@@ -1,5 +1,12 @@
 {
   "permissions": {
-    "allow": ["mcp__Superhuman_Mail__*"]
+    "allow": [
+      "mcp__Superhuman_Mail",
+      "Bash(jq:*)",
+      "Bash(echo:*)",
+      "Bash(printf:*)",
+      "Bash(cat:*)",
+      "Bash(wc:*)"
+    ]
   }
 }
