@@ -92,9 +92,22 @@ ed novo fotos/*.jpg broll.mp4 --narracao fala.m4a --nome praia # narração: ins
   `ed arquivo-modo "$PRJ" 2 fala`.
 - Em takes repetidos, o `texto` mostra cada arquivo separado. Fique com a melhor versão
   de cada frase (normalmente a última) e corte as outras.
-- Narração: a voz vem do áudio e a imagem vem toda dos insertos. Monte com
-  `ed preencher "$PRJ" --cada 2` (um inserto a cada 2 s, sem buraco preto, encaixando no
-  começo das frases). Use `--modo metade`, `--de 10 --ate 30` pra um trecho só.
+- **Vídeo narrado**: a pessoa manda a narração (áudio do celular, .m4a, .mp3, ou até um
+  vídeo, do qual só o som é usado; arquivo, pasta ou link do Drive) e as imagens (clipes e
+  fotos, também por link ou pasta). Passe a narração em `--narracao` e as imagens como
+  arquivos normais: elas vão pros insertos. Se ela mandar só a narração, pergunte pelas
+  imagens; se mandar só imagens, pergunte pela narração antes de montar.
+  ```bash
+  ed novo "<link ou pasta das imagens>" --narracao "<arquivo ou link da narração>" --nome praia
+  ed transcrever "$PRJ"
+  ed preencher "$PRJ" --cada 1.2      # um inserto a cada ~1 s, entrando no começo de uma palavra
+  ```
+  O jeito da referência de narrado: 100% imagem, um corte a cada ~1 s no começo de uma
+  palavra (no meio da frase também), tela cheia, sem zoom, cortes secos, pausas da narração
+  cortadas. Clipes repetidos continuam de onde pararam, sem mostrar a mesma imagem duas
+  vezes. Use `--modo metade`, `--de 10 --ate 30` pra um trecho só. Depois de preencher,
+  troque o inserto de cada trecho pra combinar com o que a narração diz (leia `camadas` e
+  o `texto`): a imagem tem que ilustrar a frase.
 
 O servidor imprime o endereço (normalmente http://127.0.0.1:4848). Passe pra pessoa se o
 navegador não abrir. Em computador fraco, use `transcrever "$PRJ" --modelo small`.

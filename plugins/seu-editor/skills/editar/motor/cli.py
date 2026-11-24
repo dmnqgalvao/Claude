@@ -140,6 +140,10 @@ def cmd_novo(a):
     proj = P.projeto_padrao(arquivos, nome, marca_global())
     if a.narracao:
         proj["ajustes"]["zoom_cortes"]["ativo"] = False
+        # narração gravada em vídeo (celular, Drive): vale só o som, a imagem vem dos insertos
+        for arq in proj["arquivos"]:
+            arq["tipo"] = "audio"
+            arq["modo"] = "fala"
     P.salvar(pasta, proj)
     if extras:
         os.makedirs(os.path.join(pasta, "insertos"), exist_ok=True)
@@ -192,6 +196,7 @@ def cmd_preencher(a):
     t, k, criadas = a.de, 0, 0
     fim_total = a.ate or total
     anterior, fim_anterior = None, t
+    duracoes, posicao_clip = {}, {}
     while t < fim_total - 0.05:
         alvo = min(palavras, key=lambda w: abs(w["ini_out"] - t)) if palavras else None
         ini, ancora = t, None
@@ -203,10 +208,20 @@ def cmd_preencher(a):
         if dur < 0.3:
             break
         it = itens[k % len(itens)]
+        dur_clip = 0.0
+        if it["tipo"] == "video":
+            dur_clip = duracoes.setdefault(it["nome"], P.sondar(os.path.join(a.projeto, "insertos", it["nome"]))["duracao"])
         c = {"id": "pre" + "".join(random.choice("abcdefghjkmnpqrstuvwxyz23456789") for _ in range(5)),
              "tipo": "video" if it["tipo"] == "video" else "imagem", "arquivo": it["nome"], "modo": a.modo,
              "duracao": round(dur + (0.15 if ini + dur < fim_total - 0.05 else 0), 2),   # leve sobreposição na emenda
              "movimento": "aproxima", "entrada": "nenhuma"}
+        if dur_clip:
+            # o mesmo clipe usado de novo continua de onde parou, sem repetir a mesma imagem
+            ini_clip = posicao_clip.get(it["nome"], 0.0)
+            if ini_clip + dur > dur_clip - 0.1:
+                ini_clip = 0.0
+            c["inicio_clip"] = round(ini_clip, 2)
+            posicao_clip[it["nome"]] = ini_clip + dur
         if ancora is not None:
             c["palavra"] = ancora
         else:
