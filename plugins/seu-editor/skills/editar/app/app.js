@@ -406,7 +406,6 @@ function desenharExtras() {
     gd.appendChild(campoFaixa("tamanho do destaque", 1.2, 3, .05, lv.escala_destaque || 1.8, x => x.toFixed(1).replace(".", ",") + "×", v => { lv.escala_destaque = v; mudou({ controles: false }); }));
   }
   gd.appendChild(campoFaixa("máximo de letras por bloco", 10, 40, 1, lv.max_caracteres || 22, x => x, v => { lv.max_caracteres = v; mudou({ controles: false }); }));
-  gd.appendChild(campoChave("tudo em minúsculas", lv.minusculas, v => { lv.minusculas = v; mudou({ controles: false }); }));
   d.appendChild(gd);
 
   desenharSons();
@@ -499,6 +498,8 @@ function desenharControles() {
   $$("#l-ativa-modo .pilula").forEach(b => b.classList.toggle("ativa", b.dataset.v === (lv.modo_ativa || "cor")));
   $$("#l-anim .pilula").forEach(b => b.classList.toggle("ativa", b.dataset.v === (lv.animacao || "pop")));
   $$("#l-formato .pilula").forEach(b => b.classList.toggle("ativa", b.dataset.v === (lv.formato || "corrida")));
+  const letras = lv.caixa_alta ? "maiusculas" : lv.minusculas ? "minusculas" : "normal";
+  $$("#l-letras .pilula").forEach(b => b.classList.toggle("ativa", b.dataset.v === letras));
   $("#l-pont").checked = l.sem_pontuacao !== false;
 
   $$("#enquadramento .pilula").forEach(b => b.classList.toggle("ativa", b.dataset.enq === pj.formato.enquadramento));
@@ -1168,6 +1169,26 @@ function efeitosPrevia() {
 }
 
 
+/* ============================================================ ver o gancho enquanto edita
+   Qualquer mudança no cartão do gancho pausa o vídeo num ponto em que a abertura está
+   inteira na tela (depois das entradas), pra ver a mudança na hora. */
+let tVerGancho;
+function verGancho() {
+  const g = S.proj?.gancho; if (!g) return;
+  const fim = +(g.duracao || 3);
+  const alvo = Math.min(fim - .25, (g.modelo === "texto" && g.etiqueta) ? 1.9 : (g.modelo === "imagens" ? 1.4 : 1.0));
+  const agora = paraSaida(video.currentTime);
+  if (!video.paused) video.pause();
+  if (agora < .7 || agora > fim - .2) video.currentTime = paraOriginal(Math.max(.05, alvo));
+}
+(function ligarVerGancho() {
+  const cartao = $("#g-texto")?.closest(".cartao"); if (!cartao) return;
+  const dispara = () => { clearTimeout(tVerGancho); tVerGancho = setTimeout(verGancho, 60); };
+  cartao.addEventListener("input", dispara);
+  cartao.addEventListener("click", e => { if (e.target.id !== "g-ativo" && e.target.closest("button, .pilula, .modelo-g, input, select, textarea, summary")) dispara(); });
+  cartao.addEventListener("focusin", dispara);
+})();
+
 /* ============================================================ modelos de abertura (gancho) */
 const DESENHO_MODELO = {
   caixa: `<span class="pessoa"></span><span class="t" style="top:26px"><span class="cx">gancho aqui</span></span>`,
@@ -1197,7 +1218,6 @@ function aplicarModeloGancho(modelo) {
   g.visual = v;
   if (modelo === "palavras") g.ativo = true;
   if (modelo === "imagens" && !(g.imagens || []).length) g.imagens = S.insertos.filter(i => i.tipo === "imagem").slice(0, 4).map(i => i.nome);
-  video.currentTime = (S.plano?.segmentos?.[0]?.ini || 0) + .8;
   mudou();
 }
 function desenharExtrasGancho() {
@@ -1583,6 +1603,12 @@ $("#l-ativa").onchange = e => { S.proj.legenda.ativa = e.target.checked; mudou()
 $("#l-pal").oninput = e => { S.proj.legenda.visual.palavras = +e.target.value; mudou(); };
 $("#l-pos").oninput = e => { S.proj.legenda.posicao = +e.target.value; mudou(); };
 $("#l-ativa-modo").onclick = e => { const v = e.target.dataset.v; if (!v) return; S.proj.legenda.visual.modo_ativa = v; mudou(); };
+$("#l-letras").onclick = e => {
+  const v = e.target.closest(".pilula")?.dataset.v; if (!v) return;
+  const lv = S.proj.legenda.visual;
+  lv.caixa_alta = v === "maiusculas"; lv.minusculas = v === "minusculas";
+  desenharVisuais(); mudou();
+};
 $("#l-formato").onclick = e => { const v = e.target.dataset.v; if (!v) return; S.proj.legenda.visual.formato = v; mudou(); };
 $("#l-anim").onclick = e => { const v = e.target.dataset.v; if (!v) return; S.proj.legenda.visual.animacao = v; mudou(); };
 $("#l-pont").onchange = e => { S.proj.legenda.sem_pontuacao = e.target.checked; mudou(); };
