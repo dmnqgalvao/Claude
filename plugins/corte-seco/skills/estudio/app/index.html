@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>corte seco · estúdio</title>
+<link rel="stylesheet" href="/app/app.css">
+</head>
+<body>
+
+<header class="nav">
+  <div class="marca">CORTE SECO</div>
+  <nav class="abas" role="tablist">
+    <button class="aba ativa" data-aba="cortes" role="tab"><span class="num">01</span> cortes</button>
+    <button class="aba" data-aba="texto" role="tab"><span class="num">02</span> texto</button>
+    <button class="aba" data-aba="estilo" role="tab"><span class="num">03</span> estilo</button>
+    <button class="aba" data-aba="exportar" role="tab"><span class="num">04</span> exportar</button>
+  </nav>
+  <div class="status" id="status"><span class="ponto"></span><span id="status-txt">conectando</span></div>
+  <button class="btn escuro" id="btn-exportar-topo">exportar <span class="seta">→</span></button>
+</header>
+
+<main class="palco">
+
+  <!-- ===================== prévia ===================== -->
+  <section class="previa">
+    <div class="estrela burst" id="economia" aria-hidden="true"><span id="economia-txt">0s</span></div>
+    <div class="celular leo-borda" id="celular">
+      <div class="tela-video">
+        <video id="fundo" muted playsinline preload="auto"></video>
+        <video id="video" playsinline preload="auto"></video>
+      </div>
+      <div class="sobreposicao" id="sobreposicao">
+        <div class="tela" id="tela"></div>
+        <div class="zonas" id="zonas" hidden>
+          <div class="zona topo"><span>interface do instagram</span></div>
+          <div class="zona base"><span>legenda do post e botões</span></div>
+          <div class="zona lado"></div>
+        </div>
+      </div>
+      <button class="play-grande" id="play-grande" aria-label="tocar">▶</button>
+    </div>
+
+    <div class="controles">
+      <button class="btn redondo" id="btn-play" aria-label="tocar ou pausar">▶</button>
+      <div class="linha-tempo" id="linha-tempo"><div class="preenchido" id="preenchido"></div></div>
+      <span class="tempo" id="tempo">0:00 / 0:00</span>
+    </div>
+    <div class="resumo-corte" id="resumo-corte"></div>
+    <label class="interruptor pequeno"><input type="checkbox" id="ver-zonas"><span></span> mostrar a área que o instagram cobre</label>
+  </section>
+
+  <!-- ===================== painel ===================== -->
+  <section class="painel">
+
+    <!-- 01 cortes -->
+    <div class="conteudo ativa" data-conteudo="cortes">
+      <p class="sobrancelha">01 · cortes</p>
+      <h1 class="titulo">CORTE AS <em>pausas</em></h1>
+      <p class="apoio">o ritmo define quanto respiro fica entre uma frase e outra. depois é só clicar nas palavras pra cortar ou destacar.</p>
+
+      <div class="cartao">
+        <p class="rotulo">ritmo</p>
+        <div class="pilulas" id="ritmos">
+          <button class="pilula" data-ritmo="calmo">calmo</button>
+          <button class="pilula" data-ritmo="natural">natural</button>
+          <button class="pilula" data-ritmo="acelerado">acelerado de reels</button>
+        </div>
+        <div class="regulagens">
+          <label>pausa máxima <output id="o-pausa"></output>
+            <input type="range" id="r-pausa" min="0.1" max="1.5" step="0.05"></label>
+          <label>respiro em volta da fala <output id="o-folga"></output>
+            <input type="range" id="r-folga" min="0" max="0.3" step="0.01"></label>
+        </div>
+        <label class="interruptor"><input type="checkbox" id="c-pausas"><span></span> cortar as pausas automaticamente</label>
+      </div>
+
+      <div class="cartao claude-cortes" id="cortes-claude" hidden></div>
+
+      <div class="ferramentas" id="ferramentas">
+        <div class="pilulas modos" id="modos">
+          <button class="pilula" data-modo="ouvir">▶ ouvir</button>
+          <button class="pilula" data-modo="cortar">✂ cortar</button>
+          <button class="pilula" data-modo="destacar">✦ destacar</button>
+        </div>
+        <p class="dica" id="dica-modo"></p>
+      </div>
+      <div class="transcricao" id="transcricao"></div>
+    </div>
+
+    <!-- 02 texto -->
+    <div class="conteudo" data-conteudo="texto">
+      <p class="sobrancelha">02 · texto</p>
+      <h1 class="titulo">O QUE APARECE <em>na tela</em></h1>
+      <p class="apoio">o gancho segura a pessoa nos primeiros segundos. a legenda acompanha a fala e os títulos marcam as partes do vídeo.</p>
+
+      <div class="cartao">
+        <div class="cabeca-cartao">
+          <p class="rotulo">gancho escrito</p>
+          <label class="interruptor"><input type="checkbox" id="g-ativo"><span></span> mostrar</label>
+        </div>
+        <textarea id="g-texto" rows="2" placeholder="ex.: gravei uma vez e o claude editou"></textarea>
+        <p class="mini">use uma barra em pé ( | ) pra quebrar a linha onde você quiser.</p>
+        <div class="sugestoes" id="sugestoes"></div>
+        <div class="regulagens">
+          <label>tempo na tela <output id="o-gdur"></output>
+            <input type="range" id="g-dur" min="1" max="8" step="0.5"></label>
+          <label>altura <output id="o-gpos"></output>
+            <input type="range" id="g-pos" min="0.12" max="0.5" step="0.01"></label>
+        </div>
+      </div>
+
+      <div class="cartao">
+        <div class="cabeca-cartao">
+          <p class="rotulo">legenda</p>
+          <label class="interruptor"><input type="checkbox" id="l-ativa"><span></span> mostrar</label>
+        </div>
+        <div class="regulagens">
+          <label>palavras por vez <output id="o-lpal"></output>
+            <input type="range" id="l-pal" min="1" max="6" step="1"></label>
+          <label>altura <output id="o-lpos"></output>
+            <input type="range" id="l-pos" min="0.4" max="0.8" step="0.01"></label>
+        </div>
+        <div class="pilulas" id="caixa-alta">
+          <button class="pilula" data-ca="">caixa do estilo</button>
+          <button class="pilula" data-ca="1">CAIXA ALTA</button>
+          <button class="pilula" data-ca="0">minúsculas</button>
+        </div>
+        <label class="interruptor"><input type="checkbox" id="l-pont"><span></span> tirar a pontuação da legenda</label>
+      </div>
+
+      <div class="cartao">
+        <div class="cabeca-cartao">
+          <p class="rotulo">títulos de seção</p>
+          <button class="btn borda pequeno" id="t-novo">+ título neste ponto</button>
+        </div>
+        <div id="titulos" class="lista-titulos"></div>
+      </div>
+    </div>
+
+    <!-- 03 estilo -->
+    <div class="conteudo" data-conteudo="estilo">
+      <p class="sobrancelha">03 · estilo</p>
+      <h1 class="titulo">A CARA DO <em>seu vídeo</em></h1>
+      <p class="apoio">escolha o estilo da legenda e as cores da marca. tudo que você muda aqui aparece na prévia na hora.</p>
+
+      <div class="grade-estilos" id="estilos"></div>
+
+      <div class="cartao">
+        <p class="rotulo">cores da marca</p>
+        <div class="cores">
+          <label class="cor"><input type="color" id="m-texto"><span>texto</span></label>
+          <label class="cor"><input type="color" id="m-destaque"><span>destaque</span></label>
+          <div class="amostras" id="amostras"></div>
+        </div>
+      </div>
+
+      <div class="cartao">
+        <p class="rotulo">enquadramento</p>
+        <div class="pilulas" id="enquadramento">
+          <button class="pilula" data-enq="preencher">preencher a tela</button>
+          <button class="pilula" data-enq="ajustar">vídeo inteiro com fundo desfocado</button>
+        </div>
+        <label class="interruptor"><input type="checkbox" id="f-volume"><span></span> nivelar o volume no padrão do instagram</label>
+      </div>
+
+      <div class="cartao rosa">
+        <p>gostou desse jeito? salve como padrão e os próximos vídeos já começam com esse estilo, essas cores e esse ritmo.</p>
+        <button class="btn escuro" id="salvar-marca">salvar como padrão da marca</button>
+      </div>
+    </div>
+
+    <!-- 04 exportar -->
+    <div class="conteudo" data-conteudo="exportar">
+      <p class="sobrancelha">04 · exportar</p>
+      <h1 class="titulo">PRONTO PRA <em>postar</em></h1>
+      <p class="apoio">a prévia sai em segundos e serve pra conferir. o vídeo final sai em 1080 x 1920, do jeito que o instagram e o tiktok pedem.</p>
+
+      <div class="duas">
+        <div class="cartao">
+          <p class="rotulo">prévia rápida</p>
+          <p class="mini">qualidade baixa, pra conferir cortes e legenda.</p>
+          <button class="btn borda" id="exp-previa">gerar prévia</button>
+        </div>
+        <div class="cartao leo-borda-fina">
+          <p class="rotulo">vídeo final</p>
+          <p class="mini">1080 x 1920, pronto pra subir.</p>
+          <button class="btn escuro" id="exp-final">exportar vídeo final →</button>
+        </div>
+      </div>
+
+      <div class="cartao progresso-cartao" id="progresso" hidden>
+        <p id="progresso-txt">exportando</p>
+        <div class="barra"><div id="progresso-barra"></div></div>
+      </div>
+      <div class="cartao erro" id="erro" hidden></div>
+
+      <p class="rotulo">exportados</p>
+      <div id="exportados" class="lista-exportados"></div>
+    </div>
+
+  </section>
+</main>
+
+<div class="aviso" id="aviso" role="status"></div>
+<script src="/app/app.js"></script>
+</body>
+</html>

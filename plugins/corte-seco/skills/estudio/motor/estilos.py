@@ -36,11 +36,11 @@ ESTILOS = [
         "nome": "Pop",
         "descricao": "Caixa alta e grossa, a palavra falada acende na cor de destaque.",
         "legenda": {
-            "fonte": "Poppins Black", "tamanho": 64, "caixa_alta": True,
+            "fonte": "Poppins Black", "tamanho": 78, "caixa_alta": True,
             "cor": "texto", "cor_ativa": "destaque", "cor_destaque": "destaque",
             "contorno": 7, "cor_contorno": "#000000", "sombra": 4,
             "caixa": None, "karaoke": True, "animacao": "pop", "rotacao": 0,
-            "palavras": 3, "max_letras": 16,
+            "palavras": 3, "max_letras": 14,
         },
         "titulo": {
             "fonte": "Poppins ExtraBold", "tamanho": 54, "caixa_alta": False,
@@ -53,7 +53,7 @@ ESTILOS = [
         "nome": "Caixinha",
         "descricao": "Texto escuro em etiqueta clara, a palavra falada ganha a etiqueta colorida.",
         "legenda": {
-            "fonte": "Poppins ExtraBold", "tamanho": 52, "caixa_alta": False,
+            "fonte": "Poppins ExtraBold", "tamanho": 62, "caixa_alta": False,
             "cor": "#111111", "cor_ativa": "#111111", "cor_destaque": "#111111",
             "contorno": 14, "cor_contorno": "#FFFFFF", "sombra": 0,
             "caixa": "#FFFFFF", "caixa_ativa": "destaque", "caixa_destaque": "destaque",
@@ -71,10 +71,10 @@ ESTILOS = [
         "nome": "Editorial",
         "descricao": "Serifa elegante sem caixa alta, destaques em itálico colorido.",
         "legenda": {
-            "fonte": "DM Serif Display", "tamanho": 66, "caixa_alta": False,
+            "fonte": "DM Serif Display", "tamanho": 80, "caixa_alta": False,
             "cor": "texto", "cor_ativa": "texto", "cor_destaque": "destaque",
             "italico_destaque": True,
-            "contorno": 0, "cor_contorno": "#000000", "sombra": 3,
+            "contorno": 3, "cor_contorno": "#000000", "alfa_contorno": 0x9C, "sombra": 3,
             "caixa": None, "karaoke": False, "animacao": "fade", "rotacao": 0,
             "palavras": 4, "max_letras": 24,
         },
@@ -89,7 +89,7 @@ ESTILOS = [
         "nome": "Manuscrito",
         "descricao": "Letra de pincel levemente inclinada, com cara de anotação à mão.",
         "legenda": {
-            "fonte": "Caveat Brush", "tamanho": 82, "caixa_alta": False,
+            "fonte": "Caveat Brush", "tamanho": 100, "caixa_alta": False,
             "cor": "texto", "cor_ativa": "destaque", "cor_destaque": "destaque",
             "contorno": 4, "cor_contorno": "#000000", "sombra": 3,
             "caixa": None, "karaoke": True, "animacao": "pop", "rotacao": -3,
@@ -106,7 +106,7 @@ ESTILOS = [
         "nome": "Impacto",
         "descricao": "Letra condensada enorme, uma ou duas palavras por vez.",
         "legenda": {
-            "fonte": "Anton", "tamanho": 112, "caixa_alta": True,
+            "fonte": "Anton", "tamanho": 136, "caixa_alta": True,
             "cor": "texto", "cor_ativa": "texto", "cor_destaque": "destaque",
             "contorno": 6, "cor_contorno": "#000000", "sombra": 5,
             "caixa": None, "karaoke": False, "animacao": "pop", "rotacao": 0,

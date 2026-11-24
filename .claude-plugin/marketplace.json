@@ -1,0 +1,15 @@
+{
+  "name": "domigalvao",
+  "description": "Plugins da Domi Galvão para criar e editar conteúdo com o Claude Code.",
+  "owner": {
+    "name": "Domi Galvão",
+    "url": "https://domigalvao.com"
+  },
+  "plugins": [
+    {
+      "name": "corte-seco",
+      "source": "./plugins/corte-seco",
+      "description": "Estúdio de edição de vídeo falado em português, com interface no navegador."
+    }
+  ]
+}
