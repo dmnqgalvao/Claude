@@ -4,6 +4,7 @@ Uso: python -m motor.cli <comando> ...   (rodar de dentro da pasta da skill)
 
 Comandos:
   novo VIDEO [--nome N] [--base PASTA]      cria o projeto e mostra a pasta dele
+  achar-video [parte do nome]               acha o vídeo quando a pessoa não diz onde está
   transcrever PROJETO [--modelo M]          transcreve com o tempo de cada palavra
   servir PROJETO [--porta P] [--nao-abrir]  abre a interface no navegador
   texto PROJETO                             mostra a transcrição numerada
@@ -342,6 +343,42 @@ def cmd_buscar_insertos(a):
     print(f"{len(trazidos)} arquivos em insertos/: " + ", ".join(trazidos))
 
 
+def cmd_achar_video(a):
+    """Acha vídeos quando a pessoa não diz o caminho: os mais recentes ou pelo nome."""
+    import glob
+    casa = os.path.expanduser("~")
+    pastas = [os.path.join(casa, p) for p in ("Downloads", "Desktop", "Movies", "Documents", "Videos",
+                                                "Área de Trabalho", "Documentos", "Vídeos")]
+    pastas += [os.getcwd()]
+    exts = (".mp4", ".mov", ".m4v", ".webm", ".avi", ".mkv")
+    achados = {}
+    for base in pastas:
+        if not os.path.isdir(base):
+            continue
+        for raiz, dirs, arquivos in os.walk(base):
+            dirs[:] = [d for d in dirs if not d.startswith(".") and d not in ("CapCut", "Library", "seu-editor", "node_modules")]
+            if raiz.count(os.sep) - base.count(os.sep) > 3:
+                dirs[:] = []
+            for nome in arquivos:
+                if nome.lower().endswith(exts) and not nome.startswith("."):
+                    caminho = os.path.join(raiz, nome)
+                    try:
+                        achados[caminho] = os.path.getmtime(caminho)
+                    except OSError:
+                        pass
+    lista = sorted(achados.items(), key=lambda x: -x[1])
+    if a.nome:
+        termos = [t for t in re.split(r"\W+", a.nome.lower()) if t]
+        lista = [x for x in lista if all(t in os.path.basename(x[0]).lower() for t in termos)] or \
+                [x for x in lista if any(t in os.path.basename(x[0]).lower() for t in termos)]
+    import time as _t
+    for caminho, quando in lista[:a.quantos]:
+        dur = P.sondar_video(caminho)["duracao"]
+        print(f"{_t.strftime('%d/%m %H:%M', _t.localtime(quando))}  {dur:5.0f}s  {caminho}")
+    if not lista:
+        print("(nenhum vídeo encontrado)")
+
+
 def cmd_receitas(a):
     from . import receitas as R
     itens = R.listar(dados_dir())
@@ -476,6 +513,8 @@ def main(argv=None):
     s.set_defaults(f=cmd_cortar_tempo)
     s = sub.add_parser("buscar-insertos"); s.add_argument("projeto"); s.add_argument("origem")
     s.set_defaults(f=cmd_buscar_insertos)
+    s = sub.add_parser("achar-video"); s.add_argument("nome", nargs="?"); s.add_argument("--quantos", type=int, default=5)
+    s.set_defaults(f=cmd_achar_video)
     s = sub.add_parser("receitas"); s.set_defaults(f=cmd_receitas)
     s = sub.add_parser("receita-ver"); s.add_argument("nome"); s.set_defaults(f=cmd_receita_ver)
     s = sub.add_parser("receita-salvar"); s.add_argument("nome"); s.add_argument("--projeto")

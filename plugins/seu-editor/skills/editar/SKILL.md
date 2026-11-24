@@ -1,6 +1,6 @@
 ---
 name: editar
-description: Editor de vídeo falado em português com interface visual. Corta pausas, regravações e hesitações, coloca legenda animada, gancho escrito, palavras de impacto, fotos e vídeos inseridos (cartão ou tela cheia), desenhos à mão (círculo, seta, sublinhado) e textos fixos, e exporta em 1080x1920 pra Reels e TikTok. Use sempre que a pessoa pedir pra editar, cortar ou legendar um vídeo, tirar silêncios, colocar inserts ou b-roll, textos em destaque, ou abrir o Seu Editor, inclusive quando pedir "edita do jeito X", "no estilo da cliente Y" ou com uma receita de edição salva.
+description: Edita vídeos falados em português (Reels, TikTok, Shorts) com interface visual. Use SEMPRE que a pessoa pedir pra editar, cortar, legendar, montar, finalizar ou "deixar pronto pra postar" um vídeo, do jeito que ela escrever, por exemplo "edita o vídeo que acabei de gravar", "edita esse vídeo no estilo da Marina", "corta as pausas desse vídeo", "monta o reels da Tarita com as fotos do drive". Também quando citar o Seu Editor. Corta pausas e regravações, coloca legenda, gancho, destaques, insertos, zoom, sons e cor, e exporta em 1080x1920.
 argument-hint: "[caminho do vídeo]"
 ---
 
@@ -38,10 +38,26 @@ A última linha é um JSON. Com `"ok": true`, guarde `"python"` como `PY`.
   100 MB que desenha as camadas). Avise antes.
 - No Windows, se `python3` não existir, tente `py -3`.
 
-## 2. Abrir o vídeo
+## 2. Entender o pedido e achar o vídeo
 
-Se a pessoa não passou o caminho, peça (pode vir arrastado pro terminal, com aspas ou com
-barras invertidas antes dos espaços).
+A pessoa escreve do jeito dela, sem comando e sem caminho. Tire do pedido:
+- **qual vídeo**: caminho, arquivo arrastado, ou uma descrição ("o que acabei de gravar",
+  "o último que baixei", "o vídeo da tarita", "o do triathlon no desktop")
+- **estilo**: nome de cliente ou de jeito ("no estilo da Marina", "igual o da Tarita"), um
+  dos 4 padrão, ou nada
+- **insertos**: link do Drive, Dropbox, pasta ou "as fotos que estão na pasta tal"
+- **pedidos soltos**: "bem dinâmico", "sem legenda", "acelera um pouco", "com música",
+  "coloca o print da Forbes quando eu falar do dado" etc.
+
+Se não veio caminho, ache o vídeo você mesmo, sem perguntar onde está:
+```bash
+ed achar-video              # os 5 mais recentes (Downloads, Desktop, Movies, Documents)
+ed achar-video "tarita"     # por parte do nome
+```
+Pegue o que bate com a descrição (o mais recente pra "acabei de gravar" ou "último") e diga
+em uma linha qual arquivo vai editar, já começando o trabalho. Só pergunte se houver
+dúvida real entre dois arquivos. "Bem dinâmico" quer dizer mais zoom nos cortes, mais
+destaques e insertos mais curtos. "Mais calmo" quer dizer o contrário.
 
 ```bash
 ed novo "<vídeo>" --nome "<nome curto>"      # imprime a pasta do projeto: PRJ
