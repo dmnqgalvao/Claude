@@ -107,6 +107,14 @@ class Estudio(BaseHTTPRequestHandler):
         if rota == "/api/receitas":
             from . import receitas as R
             return self._json({"itens": R.listar(self.dados)})
+        if rota.startswith("/previa/"):
+            return self._estatico(os.path.join(self.pasta, "_previa"), rota[8:])
+        if rota == "/api/recorte-previa":
+            try:
+                with open(os.path.join(self.pasta, "_previa", "recortes.json"), encoding="utf-8") as f:
+                    return self._json(json.load(f))
+            except (OSError, ValueError):
+                return self._json({"chave": None, "itens": []})
         if rota.startswith("/exportados/"):
             return self._estatico(os.path.join(self.pasta, "exportados"), rota[12:])
         if rota == "/api/projeto":
@@ -189,6 +197,21 @@ class Estudio(BaseHTTPRequestHandler):
                     f.write(bloco)
                     falta -= len(bloco)
             return self._json({"ok": True, "nome": os.path.basename(destino)})
+        if rota == "/api/recorte-previa":
+            if not self.recortando.acquire(blocking=False):
+                return self._json({"ok": True, "ja": True})
+            pasta = self.pasta
+
+            def trabalho():
+                try:
+                    gerar_recorte_previa(pasta)
+                except Exception as e:
+                    P.escrever_estado(pasta, tarefa=None, mensagem="não deu pra recortar a pessoa na prévia", erro=str(e)[-600:])
+                finally:
+                    self.recortando.release()
+
+            threading.Thread(target=trabalho, daemon=True).start()
+            return self._json({"ok": True})
         if rota == "/api/insertos-link":
             from . import buscar as B
             origem = (self._corpo().get("link") or "").strip()
@@ -309,7 +332,37 @@ def listar_insertos(pasta):
 
 def _classe(pasta, dados):
     return type("EstudioProjeto", (Estudio,), {"pasta": os.path.abspath(pasta), "dados": dados,
-                                               "exportando": threading.Lock()})
+                                               "exportando": threading.Lock(), "recortando": threading.Lock()})
+
+
+def gerar_recorte_previa(pasta):
+    """Pessoa recortada em webm transparente, nos trechos com camada atrás, pra prévia."""
+    import hashlib
+    from . import recorte as R
+    proj = P.carregar(pasta)
+    plano = PL.montar_plano(proj)
+    faixas = R.faixas_origem(plano, R.faixas_atras(plano))
+    chave = hashlib.md5(json.dumps([proj["video"], faixas]).encode()).hexdigest()[:12]
+    destino = os.path.join(pasta, "_previa")
+    os.makedirs(destino, exist_ok=True)
+    info = proj.get("info", {})
+    w, h = info.get("largura", 1080), info.get("altura", 1920)
+    alt = 640
+    larg = int(round(w * alt / h / 2)) * 2
+    itens = []
+    for k, (a, b) in enumerate(faixas):
+        P.escrever_estado(pasta, tarefa="recortando", mensagem=f"recortando a pessoa pra prévia ({k + 1} de {len(faixas)})")
+        nome = f"recorte-{chave}-{k}.webm"
+        caminho = os.path.join(destino, nome)
+        if not os.path.exists(caminho):
+            R.recortar(proj["video"], a, b - a, larg, alt, 24, caminho, previa=True)
+        itens.append({"ini": a, "fim": b, "arquivo": nome})
+    for velho in os.listdir(destino):
+        if velho.startswith("recorte-") and chave not in velho:
+            os.remove(os.path.join(destino, velho))
+    with open(os.path.join(destino, "recortes.json"), "w", encoding="utf-8") as f:
+        json.dump({"chave": chave, "faixas": faixas, "itens": itens}, f)
+    P.escrever_estado(pasta, tarefa=None, mensagem="recorte da pessoa pronto na prévia", recorte_chave=chave)
 
 
 def iniciar_em_segundo_plano(pasta):

@@ -116,7 +116,11 @@ input, textarea { font: inherit; color: inherit; }
   background: linear-gradient(var(--branco), var(--branco)) padding-box, var(--leo) border-box !important;
   background-size: auto, 260px !important;
 }
-.tela-video, .sobreposicao { position: absolute; inset: 0; overflow: hidden; border-radius: 22px; }
+.tela-video, .sobreposicao, .tela-recorte { position: absolute; inset: 0; overflow: hidden; border-radius: 22px; }
+.tela-recorte { pointer-events: none; }
+.tela-recorte video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: none; }
+.ajustar .tela-recorte video { object-fit: contain; }
+.cor-ativa .tela-recorte { filter: url(#filtro-cor); }
 .tela-video video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 #fundo { filter: blur(22px) brightness(.9); transform: scale(1.15); display: none; }
 .ajustar #fundo { display: block; }

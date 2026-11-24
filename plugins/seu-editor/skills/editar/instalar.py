@@ -18,7 +18,7 @@ import subprocess
 import sys
 import venv
 
-PACOTES = ["faster-whisper>=1.1,<2", "av>=12,<16", "playwright>=1.45", "gdown>=5"]
+PACOTES = ["faster-whisper>=1.1,<2", "av>=12,<16", "playwright>=1.45", "gdown>=5", "onnxruntime>=1.17", "numpy"]
 
 
 def dados():
@@ -69,7 +69,7 @@ def main():
         print("criando o ambiente Python em " + pasta_venv, file=sys.stderr)
         venv.create(pasta_venv, with_pip=True)
 
-    teste = subprocess.run([py, "-c", "import faster_whisper, av, playwright, gdown"], capture_output=True)
+    teste = subprocess.run([py, "-c", "import faster_whisper, av, playwright, gdown, onnxruntime, numpy"], capture_output=True)
     if teste.returncode != 0:
         print("instalando a transcrição e o desenhista de camadas (uns 2 minutos na primeira vez)", file=sys.stderr)
         subprocess.run([py, "-m", "pip", "install", "-q", "--upgrade", "pip"], check=False)

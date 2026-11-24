@@ -16,9 +16,10 @@
   /* Página usada só na exportação: o navegador invisível chama quadro(t)
      e fotografa o resultado com fundo transparente. */
   let CTX = null;
-  window.preparar = async ({ estilos, proj, plano, largura }) => {
+  window.preparar = async ({ estilos, proj, plano, largura, camada }) => {
     Motion.configurar(estilos);
-    CTX = { proj, plano, base: "", videos: false, tocando: false };
+    CTX = { proj, plano, base: "", videos: false, tocando: false, camada: camada || null };
+    const tela0 = document.getElementById("tela"); if (tela0._mapa) { tela0._mapa.clear(); tela0.innerHTML = ""; }
     const tela = document.getElementById("tela");
     tela.style.transform = `scale(${largura / 1080})`;
     await Motion.preparar(CTX);

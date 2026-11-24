@@ -155,6 +155,20 @@ todo vídeo gravado com luz de casa, que costuma sair amarelado ou escuro.
 `ed cortar-tempo "$PRJ" 12.5 14.2` (segundos do vídeo original). A pessoa também corta
 arrastando na onda do áudio, na aba cortes, e tem botão de desfazer.
 
+**Atrás da pessoa.** Qualquer palavra de impacto, texto, foto, vídeo ou desenho pode ficar
+atrás de quem fala com `"atras": true`. O plugin recorta a pessoa do vídeo sozinho (na
+primeira vez baixa um modelo de 25 MB). Funciona melhor em plano médio ou aberto, com
+espaço acima da cabeça ou dos lados. Cada trecho atrás leva alguns segundos a mais pra
+exportar, então use nos momentos que valem.
+```bash
+ed camada "$PRJ" '{"tipo":"impacto","estilo":"condensado","texto":"42 KM","palavra":12,"duracao":2.5,"y":0.28,"tamanho":1.6,"atras":true}'
+```
+
+**Foto esmaecendo.** `"opacidade": 0.6` deixa a foto transparente, `"esfumar": 0.6` some
+com as bordas, `"entrada": "fadelento"` aparece e some devagar. Combinados, a foto parece
+uma lembrança se misturando com o vídeo. Molduras sem borda: `"moldura": "nenhuma"` (só a
+foto) ou `"sombra"` (só a foto com sombra).
+
 `"ligar": true` na palavra de impacto desenha linhas dela até as fotos em cartão que estão na
 tela ao mesmo tempo (o efeito de mapa mental). Pra mudar uma camada, mande o `id` com os
 campos novos: `ed camada "$PRJ" '{"id":"imp4k2xz","y":0.3}'`. Pra listar: `ed camadas "$PRJ"`.
@@ -167,6 +181,61 @@ No fim: `ed status "$PRJ" "primeira edição pronta" --livre` e `ed resumo "$PRJ
 poucas linhas o que fez (quanto tempo saiu, regravações, gancho escolhido, camadas criadas)
 e diga que ela ajusta tudo na interface: clicar nas palavras, arrastar camadas na prévia e
 na linha do tempo, trocar fontes, cores e contorno.
+
+## Direção de arte: o que fica bonito em cada tipo de vídeo
+
+Quando a pessoa pede algo específico na mensagem, faça exatamente o que ela pediu. Quando
+não pede, ou pede só "deixa bonito", identifique o tipo de vídeo pela transcrição e pelo
+que aparece na imagem e use a receita abaixo. O objetivo é sempre segurar a atenção sem
+poluir: a legenda mais **no máximo duas camadas ao mesmo tempo**, cada camada entrando na
+palavra exata em que é falada e nada importante fora da área segura.
+
+**Dica ou educativo (pessoa falando pra câmera)**
+- Ritmo natural ou acelerado, gancho escrito com número ou promessa concreta.
+- Uma palavra de impacto a cada 6 a 10 segundos, na palavra-chave da frase, alternando
+  pincel e condensado. Na frase principal, coloque ela atrás da pessoa.
+- Zoom suave de 1.15 a 1.2 nas frases com número, resultado ou virada.
+- Quando cita um exemplo, entra foto em cartão (polaroid ou cantos arredondados) vindo da
+  lateral, com pop na entrada. Círculo ou seta quando aponta algo.
+- Sons: pop nas entradas de fotos e palavras, whoosh nas trocas de assunto. Botão de
+  chamada fixo no fim.
+
+**Storytelling, bastidores ou vlog**
+- Ritmo calmo, legenda com 4 palavras e animação "fade", cor "filme" ou "quente".
+- Poucos textos. Títulos de capítulo grandes atrás da pessoa, em serifa ou revista.
+- Fotos e vídeos de memória em tela cheia ou só a foto, esmaecendo (`fadelento`,
+  `esfumar` 0.5, `opacidade` 0.85), com movimento "aproxima".
+- Trilha de fundo baixa (0.10 a 0.14) que abaixa na fala. Quase nenhum efeito sonoro.
+
+**Esporte, treino ou ação (triathlon, corrida, academia)**
+- Ritmo acelerado, cortes secos, cor "vivo" com contraste.
+- Números grandes (distância, tempo, ritmo) em condensado atrás do atleta.
+- Zoom seco e tremida nos momentos de esforço, flash nas viradas, sons impacto e subida.
+- Fotos em cartão sem borda entrando de baixo ou "cai do alto", ritmo de 1 a cada 3 a 5
+  segundos nas partes de montagem.
+
+**Produto, review ou antes e depois**
+- Foto do produto como png recortado ou só a foto com sombra, flutuando ao lado de quem
+  fala, com seta ou círculo apontando o detalhe.
+- Antes e depois: dois cartões lado a lado (x 0.3 e 0.7), ding na revelação.
+- Etiqueta colorida com preço ou benefício principal.
+
+**Tutorial de tela (gravação do computador ou celular)**
+- Zoom com ponto de foco exatamente onde a ação acontece, círculo no botão, seta
+  indicando o próximo passo, clique como som.
+- Etiquetas de passo ("passo 1", "passo 2") no topo e legenda mais baixa, sem cobrir a
+  área da tela que importa.
+
+**Frase ou inspiracional**
+- Sem legenda palavra por palavra: um texto fixo pequeno em serifa, parado do começo ao
+  fim. Cortes a cada 2,5 a 3 segundos, cor dessaturada ("filme" com saturação 0.7) e
+  trilha de fundo.
+
+Variar é o que deixa o vídeo bom: alterne entradas (pop, lateral, cai), não repita o
+mesmo efeito duas vezes seguidas e deixe respiros sem camada nenhuma entre um destaque e
+outro. Depois de montar, veja a prévia em 3 ou 4 momentos (`ed exportar "$PRJ" --previa`
+e olhe os quadros) e corrija o que ficou poluído, cortado ou fora do lugar antes de
+apresentar pra pessoa.
 
 ## 4. Estilo, fontes e cores
 

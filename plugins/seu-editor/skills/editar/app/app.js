@@ -216,8 +216,14 @@ function desenharQuadro() {
   const total = S.plano.duracao_saida || 0;
   $("#tempo").textContent = `${fmtCurto(out)} / ${fmtCurto(total)}`;
   $("#preenchido").style.width = total ? `${Math.min(100, out / total * 100)}%` : "0";
-  Motion.cena(tela, { proj: S.proj, plano: S.plano, base: "", videos: true, tocando: !video.paused,
-                      selecionada: S.aba === "camadas" ? S.sel : null }, out);
+  const temAtras = (S.plano.camadas || []).some(c => c.atras);
+  const ctx = { proj: S.proj, plano: S.plano, base: "", videos: true, tocando: !video.paused,
+                selecionada: S.aba === "camadas" ? S.sel : null };
+  const telaAtras = $("#tela-atras");
+  telaAtras.style.transform = `scale(${escalaAtual})`;
+  Motion.cena(telaAtras, { ...ctx, camada: temAtras ? "atras" : "atras-nada" }, out);
+  Motion.cena(tela, { ...ctx, camada: temAtras ? "frente" : null }, out);
+  sincronizarRecortes(temAtras);
   const ag = $("#trilhas .agulha");
   if (ag && total) ag.style.left = (out / total * 100) + "%";
   marcarPalavraAtual();
@@ -243,7 +249,7 @@ function marcarPalavraAtual() {
 
 /* arrastar camadas direto na prévia */
 let arrasteTela = null;
-$("#tela").addEventListener("pointerdown", e => {
+for (const sel of ["#tela", "#tela-atras"]) $(sel).addEventListener("pointerdown", e => {
   const el = e.target.closest("[data-id]"); if (!el || S.aba !== "camadas") return;
   e.preventDefault(); e.stopPropagation();
   const c = camada(el.dataset.id); if (!c) return;
@@ -715,10 +721,14 @@ function desenharEditorCamada(forcar) {
     corpo.appendChild(sel);
     corpo.appendChild(linha("jeito", campoPilulas([["cartao", "cartão flutuando"], ["tela", "tela inteira"]], c.modo || "cartao", v => { mexe("modo", v); setTimeout(() => desenharEditorCamada(true), 80); })));
     if (c.tipo === "imagem" && c.modo !== "tela") {
-      corpo.appendChild(linha("moldura", campoPilulas([["polaroid", "polaroid"], ["fita", "polaroid com fita"], ["arredondada", "arredondada"], ["celular", "tela de celular"], ["sem", "sem moldura (png recortado)"]], c.moldura || "polaroid", v => mexe("moldura", v))));
+      corpo.appendChild(linha("moldura", campoPilulas([["polaroid", "borda polaroid"], ["fita", "polaroid com fita"], ["arredondada", "cantos arredondados"], ["celular", "tela de celular"], ["sombra", "só a foto com sombra"], ["nenhuma", "só a foto"], ["sem", "png recortado"]], c.moldura || "polaroid", v => mexe("moldura", v))));
       corpo.appendChild(linha("movimento", campoPilulas([["", "parado"], ["flutua", "flutuando"], ["aproxima", "aproximando devagar"], ["gira", "girando devagar"]], c.movimento || "", v => mexe("movimento", v || null))));
     }
     if (c.tipo === "imagem" && c.modo !== "tela") corpo.appendChild(linha("formato", campoPilulas([["", "original"], ["4/5", "4:5"], ["1/1", "quadrado"], ["9/16", "9:16"]], c.proporcao || "", v => mexe("proporcao", v || null))));
+    if (c.tipo === "imagem") {
+      corpo.appendChild(campoFaixa("transparência", .1, 1, .05, c.opacidade ?? 1, x => Math.round((1 - x) * 100) + "%", v => mexe("opacidade", v)));
+      corpo.appendChild(campoFaixa("bordas esfumadas", 0, 1, .05, c.esfumar || 0, x => x ? Math.round(x * 100) + "%" : "sem", v => mexe("esfumar", v || null)));
+    }
     if (c.tipo === "video") corpo.appendChild(campoFaixa("começar o clipe no segundo", 0, 60, 0.1, c.inicio_clip || 0, seg, v => mexe("inicio_clip", v)));
   }
   if (c.tipo === "desenho") {
@@ -747,11 +757,15 @@ function desenharEditorCamada(forcar) {
     corpo.appendChild(linha("som na entrada", campoPilulas([["", "nenhum"], ...Object.keys(S.estilos.sons).map(k => [k, k])], c.som || "",
       v => { mexe("som", v || null); if (v) tocarSom(v, c.som_volume ?? .8); })));
   }
-  if (c.tipo !== "video" && c.tipo !== "desenho" && c.tipo !== "efeito" && c.tipo !== "som" && !(c.tipo === "imagem" && c.modo === "tela")) {
+  if (c.tipo !== "video" && c.tipo !== "desenho" && c.tipo !== "efeito" && c.tipo !== "som") {
     const ent = cp?.entrada || c.entrada || "pop";
-    corpo.appendChild(linha("entrada", campoPilulas([["pop", "pop"], ["desliza", "sobe"], ["cai", "cai do alto"], ["esquerda", "vem da esquerda"], ["direita", "vem da direita"], ["fade", "aparece"], ["escreve", "escrevendo"], ["nenhuma", "seco"]], ent, v => mexe("entrada", v))));
+    corpo.appendChild(linha("entrada", campoPilulas([["pop", "pop"], ["desliza", "sobe"], ["cai", "cai do alto"], ["esquerda", "vem da esquerda"], ["direita", "vem da direita"], ["fade", "aparece"], ["fadelento", "esmaece devagar"], ["escreve", "escrevendo"], ["nenhuma", "seco"]], ent, v => mexe("entrada", v))));
   }
   if (c.tipo === "impacto") corpo.appendChild(campoChave("ligar com linhas às fotos que estão na tela", c.ligar, v => mexe("ligar", v)));
+  if (["impacto", "texto", "imagem", "video", "desenho"].includes(c.tipo)) {
+    const at = campoChave("atrás da pessoa (recorta a pessoa do vídeo)", c.atras, v => { mexe("atras", v || null); if (v) aviso("recortando a pessoa pra prévia, leva alguns segundos"); });
+    corpo.appendChild(at);
+  }
 
   const telaInteira = (c.tipo === "imagem" || c.tipo === "video") && c.modo === "tela";
   if (!telaInteira && c.tipo !== "efeito" && c.tipo !== "som") {
@@ -971,6 +985,47 @@ function efeitosPrevia() {
   if (S.aba === "cortes" && !video.paused) desenharOnda();
 }
 
+/* ============================================================ pessoa recortada na prévia */
+let RECORTES = { chave: null, itens: [] }, pedindoRecorte = false, chaveFaixas = "";
+async function carregarRecortes() {
+  RECORTES = (await api("GET", "/api/recorte-previa")).dados || { itens: [] };
+  const caixa = $("#tela-recorte"); caixa.innerHTML = "";
+  for (const it of RECORTES.itens || []) {
+    const v = document.createElement("video");
+    v.src = "/previa/" + it.arquivo; v.muted = true; v.playsInline = true; v.preload = "auto";
+    v.dataset.ini = it.ini; v.dataset.fim = it.fim;
+    caixa.appendChild(v);
+  }
+}
+function faixasAtras() {
+  const fx = (S.plano?.camadas || []).filter(c => c.atras).map(c => [Math.max(0, c.ini_out - .08), c.fim_out + .08]).sort((a, b) => a[0] - b[0]);
+  return JSON.stringify(fx.map(f => f.map(x => Math.round(x * 10) / 10)));
+}
+let tRecorte;
+function sincronizarRecortes(temAtras) {
+  const caixa = $("#tela-recorte");
+  const tv = $(".tela-video");
+  caixa.style.transform = tv.style.transform; caixa.style.transformOrigin = tv.style.transformOrigin;
+  if (temAtras) {
+    const chave = faixasAtras();
+    if (chave !== chaveFaixas) {
+      chaveFaixas = chave;
+      clearTimeout(tRecorte);
+      tRecorte = setTimeout(async () => { await salvar(); api("POST", "/api/recorte-previa"); }, 1500);
+    }
+  }
+  const t = video.currentTime;
+  for (const v of caixa.querySelectorAll("video")) {
+    const ini = +v.dataset.ini, fim = +v.dataset.fim;
+    const dentro = temAtras && t >= ini && t < fim;
+    v.style.display = dentro ? "block" : "none";
+    if (!dentro) { if (!v.paused) v.pause(); continue; }
+    const alvo = t - ini;
+    if (!video.paused) { if (v.paused) v.play().catch(() => {}); if (Math.abs(v.currentTime - alvo) > .25) v.currentTime = alvo; }
+    else { if (!v.paused) v.pause(); if (Math.abs(v.currentTime - alvo) > .05) v.currentTime = alvo; }
+  }
+}
+
 /* ============================================================ abas e eventos */
 $$(".aba").forEach(b => b.onclick = () => irPara(b.dataset.aba));
 function irPara(aba) {
@@ -1082,6 +1137,7 @@ async function vigiar() {
       listarExportados();
     }
     if (S.ultimoExport === null) S.ultimoExport = e.ultimo_export || "";
+    if (e.recorte_chave && e.recorte_chave !== RECORTES.chave) carregarRecortes();
     if (e.insertos_novos && e.atualizado !== S.insertosVistos) { S.insertosVistos = e.atualizado; listarInsertos().then(desenharTrilhaFundo); if (!e.tarefa) aviso(e.mensagem); }
     if (!S.sujo && !S.salvando && !arrasteBarra && !arrasteTela && r.dados.mtime !== S.mtime) await recarregar();
   } catch (err) {
@@ -1103,6 +1159,7 @@ async function vigiar() {
   registrar();
   listarInsertos().then(desenharTrilhaFundo);
   carregarOnda();
+  carregarRecortes();
   addEventListener("resize", () => { desenharQuadro(); desenharOnda(); });
   requestAnimationFrame(laco);
   vigiar();

@@ -31,19 +31,22 @@
   const quebras = t => esc(t).split("|").map(l => l.trim()).join("<br>");
 
   /* -------------------------------------------------------- entrada e saída */
-  const DUR_ENTRADA = { pop: .38, desliza: .4, fade: .28, escreve: .6, nenhuma: .001, esquerda: .45, direita: .45, cai: .5 };
+  const DUR_ENTRADA = { pop: .38, desliza: .4, fade: .28, fadelento: 1.1, escreve: .6, nenhuma: .001, esquerda: .45, direita: .45, cai: .5 };
   function envelope(c, t, entrada) {
-    const din = DUR_ENTRADA[entrada] ?? .35;
+    const din = Math.min(DUR_ENTRADA[entrada] ?? .35, Math.max(.05, (c.fim_out - c.ini_out) / 2.2));
     const pin = c01((t - c.ini_out) / din);
-    const pout = c.ate_o_fim ? 0 : c01((t - (c.fim_out - .22)) / .22);
+    const dout = entrada === "fadelento" ? Math.min(1.1, (c.fim_out - c.ini_out) / 2.2) : .22;
+    const pout = c.ate_o_fim ? 0 : c01((t - (c.fim_out - dout)) / dout);
     let op = 1, sc = 1, ty = 0, tx = 0, clip = "";
     if (entrada === "pop") { sc = .35 + .65 * ease.back(pin); op = c01(pin * 4); }
     else if (entrada === "desliza") { ty = (1 - ease.out(pin)) * 80; op = ease.out(pin); }
-    else if (entrada === "fade") { op = pin; }
+    else if (entrada === "fade" || entrada === "fadelento") { op = ease.inout(pin); }
     else if (entrada === "esquerda" || entrada === "direita") { tx = (1 - ease.out(pin)) * (entrada === "esquerda" ? -760 : 760); op = c01(pin * 3); }
     else if (entrada === "cai") { ty = -(1 - ease.back(pin)) * 260; op = c01(pin * 4); }
     else if (entrada === "escreve") { clip = `inset(-20% ${r3((1 - ease.inout(pin)) * 100)}% -20% -10%)`; op = c01(pin * 6); }
-    op *= 1 - pout; sc *= 1 - .08 * pout;
+    op *= entrada === "fadelento" ? 1 - ease.inout(pout) : 1 - pout;
+    if (entrada !== "fadelento") sc *= 1 - .08 * pout;
+    op *= c.opacidade ?? 1;
     return { op: r3(op), sc: r3(sc), ty: r3(ty), tx: r3(tx), clip, pin };
   }
   function posicionar(el, c, env, extra = "") {
@@ -200,14 +203,15 @@
     const src = (ctx.base || "") + "/insertos/" + encodeURIComponent(c.arquivo || "");
     if (c.modo === "tela") {
       return {
-        k: "imgt" + c.id + hash(src), z: 10, id: c.id,
+        k: "imgt" + c.id + hash(src + (c.esfumar || 0)), z: 10, id: c.id,
         criar() {
           const el = document.createElement("div"); el.className = "m-tela-cheia";
           el.innerHTML = `<img src="${src}" alt="">`;
+          esfumar(el, c);
           return el;
         },
         atualizar(el, t) {
-          const env = envelope(c, t, "fade");
+          const env = envelope(c, t, c.entrada === "fadelento" ? "fadelento" : "fade");
           const prog = c01((t - c.ini_out) / Math.max(.1, c.fim_out - c.ini_out));
           el.style.opacity = env.op;
           el.firstChild.style.transform = `scale(${r3(1 + .08 * prog)})`;
@@ -216,10 +220,11 @@
       };
     }
     return {
-      k: "img" + c.id + hash(src + (c.proporcao || "") + (c.moldura || "")), z: 30, id: c.id,
+      k: "img" + c.id + hash(src + (c.proporcao || "") + (c.moldura || "") + (c.esfumar || 0)), z: 30, id: c.id,
       criar() {
         const el = document.createElement("div"); el.className = "m-cartao moldura-" + (c.moldura || "polaroid");
         el.innerHTML = `<img src="${src}" alt="">`;
+        esfumar(el, c);
         if (c.proporcao) { el.firstChild.style.aspectRatio = c.proporcao; el.firstChild.style.objectFit = "cover"; }
         return el;
       },
@@ -232,6 +237,13 @@
   }
 
   /* movimento enquanto o inserto está na tela */
+  /* bordas esfumadas: a foto some aos poucos nas pontas */
+  function esfumar(el, c) {
+    const e = c.esfumar || 0;
+    const m = e ? `radial-gradient(ellipse at center, #000 ${Math.round(62 - e * 50)}%, transparent ${Math.round(100 - e * 18)}%)` : "";
+    el.style.webkitMaskImage = m; el.style.maskImage = m;
+  }
+
   function movimento(c, t) {
     const d = t - c.ini_out, total = Math.max(.1, c.fim_out - c.ini_out);
     if (c.movimento === "flutua") return ` translateY(${r3(Math.sin(d * 2.2) * 10)}px) rotate(${r3(Math.sin(d * 1.6) * 1.4)}deg)`;
@@ -388,7 +400,10 @@
   function itens(ctx, t) {
     const { plano } = ctx;
     const lista = [];
-    const visiveis = (plano.camadas || []).filter(c => t >= c.ini_out && t < c.fim_out);
+    let visiveis = (plano.camadas || []).filter(c => t >= c.ini_out && t < c.fim_out);
+    if (ctx.camada === "atras-nada") return [];
+    if (ctx.camada === "atras") visiveis = visiveis.filter(c => c.atras);
+    else if (ctx.camada === "frente") visiveis = visiveis.filter(c => !c.atras);
     for (const c of visiveis) {
       if (c.tipo === "imagem") lista.push(itemImagem(c, ctx));
       else if (c.tipo === "video") { if (ctx.videos) lista.push(itemVideo(c, ctx)); }
@@ -403,6 +418,7 @@
       else if (c.tipo === "texto") lista.push(itemTexto(c, ctx));
       else if (c.tipo === "efeito" && c.efeito === "flash") lista.push(itemFlash(c));
     }
+    if (ctx.camada === "atras") return lista;
     if (plano.gancho && t < plano.gancho.fim_out) lista.push(itemGancho(plano.gancho, plano.gancho_visual, ctx));
     const k = plano.blocos.findIndex(b => t >= b.ini_out && t < b.fim_out);
     if (k >= 0) lista.push(itemLegenda(plano.blocos[k], k, plano.legenda, ctx));

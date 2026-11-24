@@ -45,6 +45,10 @@
 }
 .m-cartao.moldura-arredondada { padding: 0; border-radius: 34px; overflow: hidden; }
 .m-cartao.moldura-arredondada img { border-radius: 0; }
+.m-cartao.moldura-nenhuma { padding: 0; background: transparent; border-radius: 0; box-shadow: none; }
+.m-cartao.moldura-nenhuma img { border-radius: 0; }
+.m-cartao.moldura-sombra { padding: 0; background: transparent; border-radius: 4px; box-shadow: 0 26px 50px -14px rgba(0,0,0,.55); }
+.m-cartao.moldura-sombra img { border-radius: 4px; }
 .m-cartao.moldura-sem { padding: 0; background: transparent; box-shadow: none; border-radius: 0; }
 .m-cartao.moldura-sem img { filter: drop-shadow(0 18px 30px rgba(0,0,0,.35)); }
 .m-cartao.moldura-celular { padding: 16px; background: #111; border-radius: 64px; box-shadow: 0 30px 60px -12px rgba(0,0,0,.55), inset 0 0 0 3px #2a2a2a; }
