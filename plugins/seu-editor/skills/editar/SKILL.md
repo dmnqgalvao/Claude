@@ -133,9 +133,21 @@ Mostre na interface o que você está fazendo: `ed status "$PRJ" "procurando reg
 Leia a transcrição: `ed texto "$PRJ"`. Cada palavra aparece como `índice:palavra`,
 `~palavra~` já está cortada e `*palavra*` está em destaque. Então:
 
-**Regravações.** Quando a pessoa começa uma frase, para e começa de novo, corte a tentativa
-anterior e fique com a última. Sinais: o mesmo começo repetido, frase interrompida, "peraí",
-"vou de novo". `ed cortar "$PRJ" 25-30 --motivo regravação`
+**Regravações.** A transcrição já marca sozinha as regravações (a pessoa começa a frase, erra
+e fala de novo: corta a tentativa anterior inteira, desde a primeira palavra) e os gaguejos
+("a a", "pro produzir"). Elas aparecem cortadas no `texto` e na aba cortes. Mesmo assim:
+1. leia o texto procurando o que sobrou: frase que termina no meio e começa de novo logo
+   depois, pedaço de frase repetido, "peraí", "vou de novo", "não, pera". A regra é
+   **cortar a tentativa errada do começo dela até logo antes da tentativa boa**. Não corte
+   só o começo: se sobrar meia frase errada, a pessoa ouve.
+2. confira se o detector não cortou repetição de propósito (anáfora, ênfase). Se cortou,
+   devolva com `ed manter "$PRJ" 40-46`.
+```bash
+ed cortar "$PRJ" 25-30 --motivo regravação
+ed regravacoes "$PRJ"             # roda o detector de novo (depois de mexer na transcrição)
+ed regravacoes "$PRJ" --refazer   # desfaz o que o detector marcou e procura de novo
+ed regravacoes "$PRJ" --desfazer  # tira todos os cortes automáticos de regravação
+```
 
 **Vícios de fala.** "tipo", "né", "então", "aí", "sabe", "assim" usados como muleta: corte só
 quando não mudam o sentido e soam como enchimento. Na dúvida, mantenha. `--motivo vício`.
@@ -290,7 +302,8 @@ citou). Não escolha fonte por conta própria.
 **Cascata (sem legenda corrida).** No gancho e em 4 a 7 momentos-chave, as palavras
 entram uma a uma empilhadas e saem juntas, grandes, na fonte de destaque do estilo:
 `{"tipo":"cascata","linhas":[{"texto":"orçamento","palavra":3},{"texto":"de fachada","palavra":5}],"y":0.3,"variar":true}`.
-Cada linha ganha um pop baixinho logo antes, sozinho.
+Cada linha ganha um pop baixinho logo antes, sozinho. As linhas ficam quase encostando;
+`"espaco"` afasta ou aproxima (1 é o padrão, 0,7 bem junto, 1,5 solto).
 
 **Gancho.** O título-gancho (caixa sólida no terço de cima, 5 a 6 s) repete a
 primeira frase falada, que é o gancho. Ou reforce o gancho com um inserto de prova em meia

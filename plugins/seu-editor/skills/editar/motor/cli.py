@@ -582,6 +582,24 @@ def cmd_ajustar(a):
     print("ajustes salvos")
 
 
+def cmd_regravacoes(a):
+    from . import regravacoes as R
+    proj = P.carregar(a.projeto)
+    pal = proj["palavras"]
+    if a.desfazer:
+        print(f"{R.desfazer(pal)} palavras voltaram")
+    else:
+        if a.refazer:
+            R.desfazer(pal)
+        achados = R.detectar(pal)
+        for motivo, i, f, txt in achados:
+            print(f"{motivo:11} {i}-{f}: {txt}")
+        marcadas = [(p.get("motivo"), p["i"]) for p in pal if p.get("origem") == "auto" and p.get("motivo") in (R.MOTIVO, R.MOTIVO_GAGUEJO)]
+        if not achados:
+            print("nenhuma regravação nova." + (f" ({len(marcadas)} palavras já marcadas)" if marcadas else ""))
+    P.salvar(a.projeto, proj)
+
+
 def cmd_sons(a):
     from . import estilos as E
     disponiveis = E.sons_disponiveis(dados_dir())
@@ -731,6 +749,9 @@ def main(argv=None):
     s.add_argument("--sons-auto", choices=["sim", "nao"])
     s.add_argument("--enquadramento", choices=["preencher", "ajustar"])
     s.add_argument("--sem-legenda", action="store_true"); s.set_defaults(f=cmd_ajustar)
+    s = sub.add_parser("regravacoes"); s.add_argument("projeto")
+    s.add_argument("--refazer", action="store_true"); s.add_argument("--desfazer", action="store_true")
+    s.set_defaults(f=cmd_regravacoes)
     s = sub.add_parser("sons"); s.add_argument("projeto", nargs="?")
     for m in ("destaque", "palavra", "texto", "foto", "cta"):
         s.add_argument("--" + m)

@@ -92,8 +92,12 @@ def transcrever(pasta, modelo="large-v3-turbo", dir_modelos=None, log=print):
             dur = max(0.1, a["fim"] - a["ini"])
             n = sum(1 for p in palavras if a["ini"] <= (p["ini"] + p["fim"]) / 2 < a["fim"])
             a["modo"] = "imagem" if n < 3 or n / dur < 0.35 else "fala"
+    from . import regravacoes as R
+    achados = R.detectar(palavras)
     P.salvar(pasta, proj)
-    auto = sum(1 for p in palavras if p.get("cortada"))
+    auto = sum(1 for p in palavras if p.get("cortada") and p.get("motivo") == "hesitação")
+    regr = sum(1 for a in achados if a[0] == R.MOTIVO)
     P.escrever_estado(pasta, tarefa=None, progresso=1.0,
-                      mensagem=f"transcrição pronta: {len(palavras)} palavras, {auto} hesitações marcadas")
+                      mensagem=f"transcrição pronta: {len(palavras)} palavras, {auto} hesitações e "
+                               f"{regr} regravações marcadas")
     return palavras

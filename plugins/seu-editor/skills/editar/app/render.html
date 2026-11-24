@@ -6,7 +6,10 @@
 <link rel="stylesheet" href="/app/motion.css">
 <style>
   html, body { margin: 0; background: transparent; overflow: hidden; }
-  #palco { position: absolute; left: 0; top: 0; }
+  /* opacidade um tiquinho abaixo de 1: o navegador sempre salva o PNG com canal de
+     transparência. Sem isso, um quadro todo coberto por foto sai sem alfa, o FFmpeg
+     reinicia a montagem no meio e solta quadros pretos. */
+  #palco { position: absolute; left: 0; top: 0; opacity: .996; }
 </style>
 </head>
 <body>

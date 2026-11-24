@@ -387,7 +387,14 @@
      palavras-chave entrando uma a uma, empilhadas, e saindo juntas */
   function itemCascata(c, ctx) {
     const v = c.visual, linhas = c.linhas || [];
-    const passo = (c.passo ?? .07) * H;
+    // centro de cada linha: empilha pela altura da letra de cada uma (espaco 1 = linhas
+    // quase encostando). Camadas antigas com "passo" fixo continuam iguais.
+    const altura = i => (v.tamanho || 100) * (linhas[i]?.tamanho || c.tamanho || 1) * (v.entrelinhas || 1);
+    const centros = [0];
+    for (let i = 1; i < linhas.length; i++)
+      centros.push(c.passo != null && c.espaco == null ? i * c.passo * H
+        : centros[i - 1] + (altura(i - 1) + altura(i)) / 2 * .92 * (c.espaco ?? 1));
+    const passo = JSON.stringify(centros);
     const variadas = ["desliza", "esquerda", "direita", "pop"];
     return {
       k: "cas" + c.id + hash(JSON.stringify(v) + JSON.stringify(linhas) + c.tamanho + passo + (c.y ?? .35)), z: 65, id: c.id,
@@ -410,7 +417,7 @@
           const ent = ln.entrada || (c.variar ? variadas[i % variadas.length] : c.entrada);
           const env = envelope({ ini_out: ln.ini_out, fim_out: c.fim_out + 1, opacidade: 1 }, t, ent);
           env.op = r3(env.op * (1 - pout) * (t >= ln.ini_out ? 1 : 0));
-          posicionar(d, { x: ln.x ?? c.x ?? .5, y: (c.y ?? .35) + i * passo / H, rot: ln.rot ?? c.rot ?? 0 }, env);
+          posicionar(d, { x: ln.x ?? c.x ?? .5, y: (c.y ?? .35) + centros[i] / H, rot: ln.rot ?? c.rot ?? 0 }, env);
         });
         return "";
       },

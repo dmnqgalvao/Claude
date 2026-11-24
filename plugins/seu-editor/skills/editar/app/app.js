@@ -702,7 +702,7 @@ $$(".adicionar [data-novo]").forEach(b => b.onclick = () => {
   if (tipo === "som") c = { id: novoId("som"), tipo: "som", som: "whoosh", palavra: p.i, volume: .8 };
   if (tipo === "cascata") {
     const prox = S.proj.palavras.filter(w => !w.cortada && w.i >= p.i).slice(0, 3);
-    c = { id: novoId("cas"), tipo: "cascata", y: .3, passo: .07, tamanho: 1, variar: true,
+    c = { id: novoId("cas"), tipo: "cascata", y: .3, espaco: 1, tamanho: 1, variar: true,
           linhas: prox.map(w => ({ texto: limpa(w.t), palavra: w.i })) };
   }
   adicionarCamada(c);
@@ -846,7 +846,11 @@ function desenharEditorCamada(forcar) {
     mais.onclick = () => { const w = palavraAtual(); if (!w) return; (c.linhas ||= []).push({ texto: limpa(w.t), palavra: w.i }); mudou({ controles: false }); desenharEditorCamada(true); };
     corpo.appendChild(mais);
     corpo.appendChild(campoChave("cada linha entra de um jeito", c.variar, v => mexe("variar", v)));
-    corpo.appendChild(campoFaixa("distância entre as linhas", .03, .15, .005, c.passo ?? .07, x => Math.round(x * 1920) + "px", v => mexe("passo", v)));
+    corpo.appendChild(campoFaixa("espaço entre as linhas", .5, 2.2, .05, c.espaco ?? (c.passo != null ? c.passo / .07 * 1.4 : 1), x => x <= .75 ? "bem junto" : x <= 1.1 ? "junto" : x <= 1.5 ? "médio" : "solto",
+      v => { delete c.passo; mexe("espaco", v); }, true));
+    const todas = document.createElement("button"); todas.type = "button"; todas.className = "btn borda pequeno"; todas.textContent = "usar esse espaço em todas as cascatas";
+    todas.onclick = () => { for (const x of S.proj.camadas) if (x.tipo === "cascata") { delete x.passo; x.espaco = c.espaco ?? 1; } mudou({ controles: false }); aviso("espaço aplicado em todas as cascatas"); };
+    corpo.appendChild(todas);
   }
   if (c.tipo === "efeito") {
     corpo.appendChild(linha("efeito", campoPilulas(Object.entries(NOMES_EFEITO), c.efeito, v => { mexe("efeito", v); setTimeout(() => desenharEditorCamada(true), 80); })));
