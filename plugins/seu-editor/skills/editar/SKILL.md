@@ -182,60 +182,90 @@ poucas linhas o que fez (quanto tempo saiu, regravações, gancho escolhido, cam
 e diga que ela ajusta tudo na interface: clicar nas palavras, arrastar camadas na prévia e
 na linha do tempo, trocar fontes, cores e contorno.
 
-## Direção de arte: o que fica bonito em cada tipo de vídeo
+## Padrão de edição (o jeito da Domi, medido em 11 projetos reais)
 
-Quando a pessoa pede algo específico na mensagem, faça exatamente o que ela pediu. Quando
-não pede, ou pede só "deixa bonito", identifique o tipo de vídeo pela transcrição e pelo
-que aparece na imagem e use a receita abaixo. O objetivo é sempre segurar a atenção sem
-poluir: a legenda mais **no máximo duas camadas ao mesmo tempo**, cada camada entrando na
-palavra exata em que é falada e nada importante fora da área segura.
+Quando a pessoa pede algo específico na mensagem, ou cita um estilo de cliente, faça
+isso. Quando não pede, este é o padrão. Projeto novo já nasce com corte seco, zoom nos
+cortes, legenda no formato abaixo, destaque que substitui a legenda, sons automáticos e
+cor quente e nítida. **Velocidade fica normal**: só acelere (1,1× a 1,3×) se a pessoa pedir.
 
-**Dica ou educativo (pessoa falando pra câmera)**
-- Ritmo natural ou acelerado, gancho escrito com número ou promessa concreta.
-- Uma palavra de impacto a cada 6 a 10 segundos, na palavra-chave da frase, alternando
-  pincel e condensado. Na frase principal, coloque ela atrás da pessoa.
-- Zoom suave de 1.15 a 1.2 nas frases com número, resultado ou virada.
-- Quando cita um exemplo, entra foto em cartão (polaroid ou cantos arredondados) vindo da
-  lateral, com pop na entrada. Círculo ou seta quando aponta algo.
-- Sons: pop nas entradas de fotos e palavras, whoosh nas trocas de assunto. Botão de
-  chamada fixo no fim.
+**Corte.** Ritmo `seco` (tira toda pausa a partir de ~0,14 s, sem sobrar ar entre as
+frases). Toda frase refeita sai, fica a última versão. Nenhuma transição. Se o vídeo
+começa com "oi", apresentação ou "deixa eu ver", corte: o vídeo abre direto no gancho.
 
-**Storytelling, bastidores ou vlog**
-- Ritmo calmo, legenda com 4 palavras e animação "fade", cor "filme" ou "quente".
-- Poucos textos. Títulos de capítulo grandes atrás da pessoa, em serifa ou revista.
-- Fotos e vídeos de memória em tela cheia ou só a foto, esmaecendo (`fadelento`,
-  `esfumar` 0.5, `opacidade` 0.85), com movimento "aproxima".
-- Trilha de fundo baixa (0.10 a 0.14) que abaixa na fala. Quase nenhum efeito sonoro.
+**Zoom.** O zoom nos cortes já vem ligado: alterna plano normal e plano fechado em ~35%
+dos cortes, nunca dois seguidos. Na fala sentada ou de perto, use 1,3 a 1,5
+(`ed ajustar "$PRJ" --zoom-cortes 1.4`). Em plano aberto, 1,08 a 1,12. Em selfie andando,
+pessoa recortada ou vídeo só de narração com imagens, desligue (`--zoom-cortes 1`). Na
+frase de maior ênfase, faça uma escada de zoom: `{"tipo":"efeito","efeito":"escada","palavra":N,"duracao":2.5}`.
 
-**Esporte, treino ou ação (triathlon, corrida, academia)**
-- Ritmo acelerado, cortes secos, cor "vivo" com contraste.
-- Números grandes (distância, tempo, ritmo) em condensado atrás do atleta.
-- Zoom seco e tremida nos momentos de esforço, flash nas viradas, sons impacto e subida.
-- Fotos em cartão sem borda entrando de baixo ou "cai do alto", ritmo de 1 a cada 3 a 5
-  segundos nas partes de montagem.
+**Legenda corrida.** 2 a 3 palavras, uma linha, minúsculas, sem pontuação, branca e pequena
+no terço de baixo, sempre no mesmo lugar, com fade em cada bloco (já é o padrão). Nos
+vídeos que não pedem legenda corrida (frase, documentário com narração, vídeos com texto
+forte só nos momentos-chave), desligue com `--sem-legenda` e use cascata.
 
-**Produto, review ou antes e depois**
-- Foto do produto como png recortado ou só a foto com sombra, flutuando ao lado de quem
-  fala, com seta ou círculo apontando o detalhe.
-- Antes e depois: dois cartões lado a lado (x 0.3 e 0.7), ding na revelação.
-- Etiqueta colorida com preço ou benefício principal.
+**Destaque.** A palavra destacada aparece sozinha, ~1,8× maior, na fonte de destaque, no
+lugar da legenda. Marque com `ed destacar`:
+- o conceito-chave (substantivo, nunca verbo de ligação nem artigo), 1 a 2 palavras
+- itens de lista e ordinais ("primeiro", "segundo", "terceiro")
+- nomes próprios e o nome do lugar ou do produto
+- **sempre** a palavra do CTA ("plano", "link", a palavra-chave pra comentar)
+- um destaque a cada 2 a 4 segundos (18% a 30% dos blocos)
+Fonte e cor do destaque vêm do estilo (os 4 padrão ou o estilo de cliente que a pessoa
+citou). Não escolha fonte por conta própria.
 
-**Tutorial de tela (gravação do computador ou celular)**
-- Zoom com ponto de foco exatamente onde a ação acontece, círculo no botão, seta
-  indicando o próximo passo, clique como som.
-- Etiquetas de passo ("passo 1", "passo 2") no topo e legenda mais baixa, sem cobrir a
-  área da tela que importa.
+**Cascata (sem legenda corrida).** No gancho e em 4 a 7 momentos-chave, as palavras
+entram uma a uma empilhadas e saem juntas, grandes, na fonte de destaque do estilo:
+`{"tipo":"cascata","linhas":[{"texto":"orçamento","palavra":3},{"texto":"de fachada","palavra":5}],"y":0.3,"variar":true}`.
+Cada linha ganha um clique 0,1 s antes, sozinho.
 
-**Frase ou inspiracional**
-- Sem legenda palavra por palavra: um texto fixo pequeno em serifa, parado do começo ao
-  fim. Cortes a cada 2,5 a 3 segundos, cor dessaturada ("filme" com saturação 0.7) e
-  trilha de fundo.
+**Gancho.** O título-gancho (caixa sólida no terço de cima, 5 a 6 s) repete a
+primeira frase falada, que é o gancho. Ou reforce o gancho com um inserto de prova em meia
+tela nos primeiros segundos. O gancho tem que aparecer na imagem nos primeiros 2 a 6 s.
 
-Variar é o que deixa o vídeo bom: alterne entradas (pop, lateral, cai), não repita o
-mesmo efeito duas vezes seguidas e deixe respiros sem camada nenhuma entre um destaque e
-outro. Depois de montar, veja a prévia em 3 ou 4 momentos (`ed exportar "$PRJ" --previa`
-e olhe os quadros) e corrija o que ficou poluído, cortado ou fora do lugar antes de
-apresentar pra pessoa.
+**Insertos.**
+- *Prova ou contexto*: 1,7 a 4 s, trocando a cada ~2 s quando a pessoa cita algo.
+- *Pano de fundo*: 10 a 15 s em meia tela enquanto ela fala.
+- O jeito preferido é a **meia tela** (`"modo":"metade"`, `"lado":"cima"` ou `"baixo"`),
+  com a pessoa falando na outra metade. Tela cheia só por 1 a 2 s.
+- Fotos com movimento lento ("aproxima"). Sem animação de entrada nos insertos de tela
+  cheia ou meia tela.
+- Vídeos documentário (história, atleta, lugar) têm de 30 a 40 insertos por minuto. Fala
+  com prova, de 12 a 15. Fala pura, de 0 a 5.
+
+**Som.** Os sons automáticos acompanham o texto, nunca o corte: clique 0,1 s antes de
+cada palavra-chave, pop no destaque que alterna, whoosh 0,2 s antes da foto que entra
+voando e ding no CTA. Volume baixo. Não coloque música no vídeo, a não ser que a pessoa
+peça (ela entra depois, no Instagram).
+
+**Cor.** Quente e nítida (filtro `quente_nitido`, já é o padrão). Rode `ed cor "$PRJ" --auto`
+em vídeo gravado com luz de casa. Na confissão ou na virada da história, coloque preto e
+branco por 1 a 7 s: `{"tipo":"efeito","efeito":"pb","palavra":N,"duracao":3}`.
+
+**Roteiro.** Você não muda o que a pessoa falou, mas a edição segue a estrutura dela:
+- gancho de 1 frase (até 5 s) que contradiz, pergunta, alerta, imagina uma cena ou traz
+  um dado com contraste
+- desenvolvimento em lista de 3 ("primeiro / segundo / terceiro", com os números em
+  destaque) ou em ordem cronológica, com uma frase de virada antes do fim
+- CTA nos últimos ~6 s, com a palavra-chave em destaque e o ding
+Se o gancho não estiver no começo da gravação, mas existir mais pra frente, avise a pessoa
+e sugira começar o vídeo nele.
+
+**Por tipo de vídeo, quando a pessoa não diz nada:**
+- *Especialista dando dica (sentada)*: legenda corrida, destaque branco, zoom 1,3 a 1,5,
+  insertos de prova em meia tela, lista de 3 em destaque.
+- *Lugar, evento ou desejo (narração com imagens)*: legenda corrida com destaques
+  frequentes (1 a cada ~2 s, alternando as duas fontes de destaque se o estilo tiver),
+  insertos a cada ~2 s, pessoa recortada com fotos em volta (`"atras": true`), sem zoom.
+- *História, atleta ou documentário*: sem legenda corrida, insertos curtos em meia tela e
+  tela cheia, preto e branco na virada, sem zoom quando a pessoa está recortada.
+- *Opinião ou relato pessoal*: cascata no gancho e nas viradas, escada de zoom na frase
+  mais forte, preto e branco na confissão.
+- *Serviço ou empresa*: palavras-chave em pares (cascata curta), título-gancho em caixa,
+  ding no CTA.
+
+Depois de montar, gere a prévia (`ed exportar "$PRJ" --previa`), olhe 3 ou 4 quadros e
+corrija o que ficou poluído, ilegível ou fora do lugar antes de mostrar pra pessoa.
 
 ## 4. Estilo, fontes e cores
 
@@ -272,7 +302,8 @@ Campos de visual (servem pra legenda e pro `"visual"` de camadas de impacto e te
 `espacamento` (espaço entre letras, -10 a 40). Só da legenda: `cor_destaque`,
 `modo_ativa` (`cor`, `fundo`, `nenhum`), `animacao` (`pop`, `fade`, `nenhuma`), `palavras`.
 
-Outros ajustes: `ed ajustar "$PRJ" --ritmo acelerado` (`calmo`, `natural`, `acelerado`),
+Outros ajustes: `ed ajustar "$PRJ" --ritmo seco` (`seco`, `calmo`, `natural`, `acelerado`),
+`--velocidade 1.2` (só se a pessoa pedir), `--zoom-cortes 1.4` (1 desliga), `--sons-auto nao`,
 `--posicao 0.64` (altura da legenda), `--enquadramento ajustar` (vídeo horizontal inteiro
 com fundo desfocado), `--sem-legenda`.
 

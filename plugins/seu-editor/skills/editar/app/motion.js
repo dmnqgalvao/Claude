@@ -92,10 +92,17 @@
     }
   }
 
-  function itemLegenda(b, k, v, ctx) {
+  function itemLegenda(b, k, v0, ctx) {
     const leg = ctx.proj.legenda;
+    let v = v0;
+    if (b.destaque) {
+      const segunda = b.alt === 1 && v0.fonte_destaque2;
+      v = { ...v0, fonte: (segunda ? v0.fonte_destaque2 : v0.fonte_destaque) || v0.fonte,
+            cor: (b.alt === 1 ? (v0.cor_destaque2 || v0.cor_destaque) : v0.cor_destaque) || v0.cor,
+            tamanho: v0.tamanho * (v0.escala_destaque || 1.8), modo_ativa: "nenhum" };
+    }
     const comFundo = v.fundo && v.fundo !== "nenhum";
-    const chave = "leg" + hash(JSON.stringify(v) + b.ini_out + b.palavras.map(w => w.t + (w.destaque ? "*" : "")).join(" ") + leg.posicao);
+    const chave = "leg" + hash(JSON.stringify(v) + b.ini_out + (b.destaque ? "D" : "") + b.palavras.map(w => w.t + (w.destaque ? "*" : "")).join(" ") + leg.posicao);
     return {
       k: chave, z: 90,
       criar() {
@@ -115,18 +122,18 @@
       atualizar(el, t) {
         const p = c01((t - b.ini_out) / (v.animacao === "pop" ? .11 : .16));
         if (v.animacao === "pop") el.style.scale = r3(.78 + .22 * p);
-        if (v.animacao === "fade") el.style.opacity = r3(p);
+        if (v.animacao === "fade") el.style.opacity = r3(p * c01((b.fim_out - t) / .12));
         let ativa = -1;
         if (v.modo_ativa !== "nenhum") b.palavras.forEach((w, j) => { if (t >= w.ini_out && t < w.fim_out) ativa = j; });
         el.querySelectorAll("span").forEach((sp, j) => {
           const w = b.palavras[j];
-          const marcada = j === ativa || w.destaque;
+          const marcada = j === ativa || (w.destaque && !b.destaque);
           if (v.modo_ativa === "fundo" && j === ativa) {
             sp.style.background = v.cor_destaque; sp.style.color = v.cor;
             if (!comFundo) { sp.style.padding = ".02em .2em"; sp.style.borderRadius = ".12em"; sp.style.webkitTextStroke = "0"; }
           } else {
             sp.style.background = comFundo ? v.cor_fundo : "transparent";
-            sp.style.color = marcada ? v.cor_destaque : v.cor;
+            sp.style.color = marcada && !b.destaque ? v.cor_destaque : v.cor;
             if (!comFundo) { sp.style.padding = ""; sp.style.webkitTextStroke = ""; }
           }
         });
@@ -199,8 +206,29 @@
   }
 
   /* -------------------------------------------------------- insertos */
+  /* meia tela: o inserto ocupa a metade de cima (ou de baixo) com a borda de dentro esfumada */
+  function caixaMetade(el, c) {
+    const alt = Math.round(H * .54), esf = Math.round(H * .08), baixo = c.lado === "baixo";
+    el.style.left = "0px"; el.style.width = W + "px"; el.style.height = alt + "px";
+    el.style.top = (baixo ? H - alt : 0) + "px";
+    const m = `linear-gradient(${baixo ? "to top" : "to bottom"}, #000 ${alt - esf}px, transparent ${alt}px)`;
+    el.style.webkitMaskImage = m; el.style.maskImage = m;
+  }
+
   function itemImagem(c, ctx) {
     const src = (ctx.base || "") + "/insertos/" + encodeURIComponent(c.arquivo || "");
+    if (c.modo === "metade") {
+      return {
+        k: "imgm" + c.id + hash(src + c.lado), z: 12, id: c.id,
+        criar() { const el = document.createElement("div"); el.className = "m-metade"; el.innerHTML = `<img src="${src}" alt="">`; caixaMetade(el, c); return el; },
+        atualizar(el, t) {
+          const prog = c01((t - c.ini_out) / Math.max(.1, c.fim_out - c.ini_out));
+          el.style.opacity = envelope(c, t, c.entrada === "fadelento" ? "fadelento" : "nenhuma").op;
+          el.firstChild.style.transform = c.movimento === "parado" ? "" : `scale(${r3(1 + .06 * prog)})`;
+          return "";
+        },
+      };
+    }
     if (c.modo === "tela") {
       return {
         k: "imgt" + c.id + hash(src + (c.esfumar || 0)), z: 10, id: c.id,
@@ -255,11 +283,13 @@
   function itemVideo(c, ctx) {
     const src = (ctx.base || "") + "/insertos/" + encodeURIComponent(c.arquivo || "");
     const tela = c.modo !== "cartao";
+    const metade = c.modo === "metade";
     return {
-      k: "vid" + c.id + hash(src + c.modo), z: tela ? 12 : 31, id: c.id,
+      k: "vid" + c.id + hash(src + c.modo + c.lado), z: tela ? 12 : 31, id: c.id,
       criar() {
-        const el = document.createElement("div"); el.className = tela ? "m-tela-cheia" : "m-cartao";
+        const el = document.createElement("div"); el.className = metade ? "m-metade" : tela ? "m-tela-cheia" : "m-cartao";
         el.innerHTML = `<video src="${src}" muted playsinline preload="auto"></video>`;
+        if (metade) caixaMetade(el, c);
         return el;
       },
       atualizar(el, t) {
@@ -272,7 +302,8 @@
           if (!v.paused) v.pause();
           if (Math.abs(v.currentTime - alvo) > .04) v.currentTime = alvo;
         }
-        if (tela) { el.style.opacity = envelope(c, t, "fade").op; }
+        if (metade) { el.style.opacity = envelope(c, t, "nenhuma").op; }
+        else if (tela) { el.style.opacity = envelope(c, t, "fade").op; }
         else { el.style.width = ((c.tamanho || .34) * W) + "px"; posicionar(el, c, envelope(c, t, "fade")); }
         return "";
       },
@@ -351,6 +382,40 @@
     };
   }
 
+  /* -------------------------------------------------------- cascata
+     palavras-chave entrando uma a uma, empilhadas, e saindo juntas */
+  function itemCascata(c, ctx) {
+    const v = c.visual, linhas = c.linhas || [];
+    const passo = (c.passo ?? .07) * H;
+    const variadas = ["desliza", "esquerda", "direita", "pop"];
+    return {
+      k: "cas" + c.id + hash(JSON.stringify(v) + JSON.stringify(linhas) + c.tamanho + passo + (c.y ?? .35)), z: 65, id: c.id,
+      criar() {
+        const el = document.createElement("div"); el.className = "m-cascata";
+        el.style.left = "0px"; el.style.top = "0px"; el.style.width = W + "px"; el.style.height = H + "px";
+        linhas.forEach((ln, i) => {
+          const d = document.createElement("div"); d.className = "m-imp";
+          aplicarVisual(d, v, (ln.tamanho || c.tamanho || 1));
+          d.style.position = "absolute";
+          conteudo(d, ln.texto, v);
+          el.appendChild(d);
+        });
+        return el;
+      },
+      atualizar(el, t) {
+        const pout = c01((t - (c.fim_out - .2)) / .2);
+        [...el.children].forEach((d, i) => {
+          const ln = linhas[i];
+          const ent = ln.entrada || (c.variar ? variadas[i % variadas.length] : c.entrada);
+          const env = envelope({ ini_out: ln.ini_out, fim_out: c.fim_out + 1, opacidade: 1 }, t, ent);
+          env.op = r3(env.op * (1 - pout) * (t >= ln.ini_out ? 1 : 0));
+          posicionar(d, { x: ln.x ?? c.x ?? .5, y: (c.y ?? .35) + i * passo / H, rot: ln.rot ?? c.rot ?? 0 }, env);
+        });
+        return "";
+      },
+    };
+  }
+
   /* -------------------------------------------------------- textos fixos */
   function itemTexto(c, ctx) {
     const v = c.visual;
@@ -416,6 +481,7 @@
       }
       else if (c.tipo === "desenho") lista.push(itemDesenho(c, ctx));
       else if (c.tipo === "texto") lista.push(itemTexto(c, ctx));
+      else if (c.tipo === "cascata") lista.push(itemCascata(c, ctx));
       else if (c.tipo === "efeito" && c.efeito === "flash") lista.push(itemFlash(c));
     }
     if (ctx.camada === "atras") return lista;

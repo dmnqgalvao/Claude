@@ -68,6 +68,7 @@
       <div class="cartao">
         <p class="rotulo">ritmo</p>
         <div class="pilulas" id="ritmos">
+          <button class="pilula" data-ritmo="seco">seco</button>
           <button class="pilula" data-ritmo="calmo">calmo</button>
           <button class="pilula" data-ritmo="natural">natural</button>
           <button class="pilula" data-ritmo="acelerado">acelerado de reels</button>
@@ -79,6 +80,7 @@
             <input type="range" id="r-folga" min="0" max="0.3" step="0.01"></label>
         </div>
         <label class="interruptor"><input type="checkbox" id="c-pausas"><span></span> cortar as pausas automaticamente</label>
+        <div id="ritmo-extra"></div>
       </div>
 
       <div class="cartao">
@@ -125,12 +127,14 @@
         <button class="btn borda" data-novo="texto">T texto</button>
         <button class="btn borda" data-novo="cta">▭ botão de chamada</button>
         <button class="btn borda" data-novo="efeito">⚡ zoom, tremida ou flash</button>
+        <button class="btn borda" data-novo="cascata">≡ cascata de palavras</button>
         <button class="btn borda" data-novo="som">♪ efeito sonoro</button>
       </div>
 
       <div class="cartao">
         <div class="cabeca-cartao"><p class="rotulo">trilha de fundo</p><span class="mini">envie uma música (mp3, wav, m4a) junto com os insertos</span></div>
         <div id="trilha"></div>
+        <div id="sons-auto" style="margin-top:12px"></div>
       </div>
 
       <div class="cartao linha-camadas">
@@ -196,6 +200,7 @@
           </div>
         </div>
         <label class="interruptor"><input type="checkbox" id="l-pont"><span></span> tirar a pontuação da legenda</label>
+        <div id="legenda-destaque" class="visual-aberto"></div>
         <div id="visual-legenda" class="visual-aberto"></div>
       </div>
     </div>

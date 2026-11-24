@@ -221,8 +221,8 @@ def cmd_camada(a):
                 existente[k] = v
         c = existente
     else:
-        if c.get("tipo") not in ("impacto", "imagem", "video", "desenho", "texto", "efeito", "som"):
-            sys.exit("tipo precisa ser impacto, imagem, video, desenho, texto, efeito ou som")
+        if c.get("tipo") not in ("impacto", "imagem", "video", "desenho", "texto", "efeito", "som", "cascata"):
+            sys.exit("tipo precisa ser impacto, imagem, video, desenho, texto, cascata, efeito ou som")
         c.setdefault("id", c["tipo"][:3] + "".join(random.choice("abcdefghijkmnpqrstuvwxyz23456789") for _ in range(5)))
         if c.get("palavra") is None and c.get("ini") is None:
             c["ini"] = 0
@@ -386,6 +386,15 @@ def cmd_ajustar(a):
         proj["ajustes"].update(folga=a.folga, ritmo="personalizado")
     if a.posicao is not None:
         proj["legenda"]["posicao"] = a.posicao
+    if a.velocidade is not None:
+        proj["ajustes"]["velocidade"] = a.velocidade
+    if a.zoom_cortes is not None:
+        zc = proj["ajustes"].setdefault("zoom_cortes", {"ativo": True, "intensidade": 1.3, "frequencia": 0.35})
+        zc["ativo"] = a.zoom_cortes > 1.001
+        if zc["ativo"]:
+            zc["intensidade"] = a.zoom_cortes
+    if a.sons_auto is not None:
+        proj["ajustes"]["sons_auto"] = a.sons_auto == "sim"
     if a.enquadramento:
         proj["formato"]["enquadramento"] = a.enquadramento
     if a.sem_legenda:
@@ -476,6 +485,8 @@ def main(argv=None):
     s = sub.add_parser("ajustar"); s.add_argument("projeto")
     s.add_argument("--ritmo", choices=list(P.RITMOS)); s.add_argument("--pausa-max", type=float)
     s.add_argument("--folga", type=float); s.add_argument("--posicao", type=float)
+    s.add_argument("--velocidade", type=float); s.add_argument("--zoom-cortes", type=float)
+    s.add_argument("--sons-auto", choices=["sim", "nao"])
     s.add_argument("--enquadramento", choices=["preencher", "ajustar"])
     s.add_argument("--sem-legenda", action="store_true"); s.set_defaults(f=cmd_ajustar)
     s = sub.add_parser("status"); s.add_argument("projeto"); s.add_argument("mensagem")

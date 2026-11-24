@@ -89,17 +89,25 @@ def montar_filtro(plano, proj, largura, altura, fps, com_audio, videos, idx_quad
     base_idx: entrada com a base já cortada e enquadrada (quando há camadas atrás da pessoa).
     atras_seqs / recortes: [(entrada, ini, fim)] com as camadas de trás e a pessoa recortada."""
     segs = plano["segmentos"]
+    info = proj.get("info", {})
+    sw, sh = int(info.get("largura", 1080)) // 2 * 2, int(info.get("altura", 1920)) // 2 * 2
     partes, entradas = [], []
     for k, s in enumerate(segs):
         dur = s["fim"] - s["ini"]
+        vel = float(s.get("vel", 1.0))
         if base_idx is None:
-            partes.append(f"[0:v]trim=start={s['ini']:.3f}:end={s['fim']:.3f},setpts=PTS-STARTPTS[v{k}]")
+            z = float(s.get("zoom", 1.0))
+            zoom = (f",crop=w=iw/{z:.4f}:h=ih/{z:.4f}:x=(iw-iw/{z:.4f})/2:y=(ih-ih/{z:.4f})*0.42,scale={sw}:{sh}"
+                    if z > 1.001 else "")
+            velo = f",setpts=PTS/{vel:.4f}" if abs(vel - 1) > 1e-3 else ""
+            partes.append(f"[0:v]trim=start={s['ini']:.3f}:end={s['fim']:.3f},setpts=PTS-STARTPTS{zoom}{velo}[v{k}]")
             entradas.append(f"[v{k}]")
         if com_audio:
             f = min(0.012, dur / 4)
+            tempo = f",atempo={vel:.4f}" if abs(vel - 1) > 1e-3 else ""
             partes.append(
                 f"[0:a]atrim=start={s['ini']:.3f}:end={s['fim']:.3f},asetpts=PTS-STARTPTS,"
-                f"afade=t=in:d={f:.3f},afade=t=out:st={max(0, dur - f):.3f}:d={f:.3f}[a{k}]")
+                f"afade=t=in:d={f:.3f},afade=t=out:st={max(0, dur - f):.3f}:d={f:.3f}{tempo}[a{k}]")
             entradas.append(f"[a{k}]")
     if base_idx is not None:
         if com_audio:
@@ -121,7 +129,11 @@ def montar_filtro(plano, proj, largura, altura, fps, com_audio, videos, idx_quad
         partes.append(f"[vc]scale={largura}:{altura}:force_original_aspect_ratio=increase,"
                       f"crop={largura}:{altura},setsar=1,fps={fps}[vb]")
     if base_idx is None:
-        partes.append(f"[vb]{_filtro_cor(plano.get('cor'))}{_expr_efeitos(plano.get('camadas', []), largura, altura)}"
+        cor = plano.get("cor") or {}
+        nitidez = f"unsharp=5:5:{cor['nitidez']:.2f}:5:5:0," if cor.get("nitidez") else ""
+        pb = "".join(f"hue=s=0:enable='between(t,{c['ini_out']:.3f},{c['fim_out']:.3f})',"
+                     for c in plano.get("camadas", []) if c.get("tipo") == "efeito" and c.get("efeito") == "pb")
+        partes.append(f"[vb]{_filtro_cor(cor)}{nitidez}{pb}{_expr_efeitos(plano.get('camadas', []), largura, altura)}"
                       f"setsar=1,format=yuv420p[b0]")
     if so_base:
         return ";\n".join(partes)
@@ -151,7 +163,15 @@ def montar_filtro(plano, proj, largura, altura, fps, com_audio, videos, idx_quad
         ini, fim = c["ini_out"], c["fim_out"]
         dur = fim - ini
         cadeia = f"[{idx}:v]trim=duration={dur:.3f},setpts=PTS-STARTPTS,fps={fps},"
-        if c.get("modo") == "cartao":
+        if c.get("modo") == "metade":
+            alt = int(round(altura * 0.54 / 2)) * 2
+            esf = int(altura * 0.08)
+            embaixo = c.get("lado") == "baixo"
+            rampa = f"255*min(1,Y/{esf})" if embaixo else f"255*min(1,({alt}-Y)/{esf})"
+            partes.append(f"color=c=black:s={largura}x{alt}:r={fps}:d={dur:.3f},format=gray,geq=lum='{rampa}'[mk{n}]")
+            cadeia += f"scale={largura}:{alt}:force_original_aspect_ratio=increase,crop={largura}:{alt},format=rgba[iv{n}];[iv{n}][mk{n}]alphamerge,"
+            pos = f"x=0:y={altura - alt if embaixo else 0}"
+        elif c.get("modo") == "cartao":
             w = int(round((c.get("tamanho") or .34) * largura / 2)) * 2
             borda = max(2, int(round(14 * esc)))
             rot = float(c.get("rot") or 0) * math.pi / 180

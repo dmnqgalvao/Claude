@@ -12,7 +12,8 @@ Os limites são conservadores pra não estragar vídeo que já está bom.
 import subprocess
 
 FILTROS = {
-    "nenhum":  {"brilho": 0.0, "contraste": 1.0, "saturacao": 1.0, "temperatura": 0.0},
+    "nenhum":  {"brilho": 0.0, "contraste": 1.0, "saturacao": 1.0, "temperatura": 0.0, "nitidez": 0.0},
+    "quente_nitido": {"brilho": 0.01, "contraste": 1.06, "saturacao": 1.1, "temperatura": 0.35, "nitidez": 0.6},
     "quente":  {"brilho": 0.01, "contraste": 1.03, "saturacao": 1.08, "temperatura": 0.55},
     "frio":    {"brilho": 0.0, "contraste": 1.04, "saturacao": 0.95, "temperatura": -0.45},
     "vivo":    {"brilho": 0.01, "contraste": 1.1, "saturacao": 1.3, "temperatura": 0.05},

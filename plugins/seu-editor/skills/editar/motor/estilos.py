@@ -20,6 +20,7 @@ PASTA_FONTES = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__fi
 # id -> como aparece na lista, pilha de fontes do CSS, peso e largura média
 # de uma letra (em fração do tamanho) pra calcular quantas letras cabem.
 FONTES = {
+    "sfpro":      {"nome": "SF Pro Display Bold", "familia": '-apple-system, "SF Pro Display", system-ui, "Inter Tight"', "peso": 700, "largura": .55},
     "bootzy":     {"nome": "Bootzy TM", "familia": '"Bootzy TM", "Bootzy", "Inter Tight"', "peso": 800, "largura": .5, "tracking": -4},
     "opensauce":  {"nome": "Open Sauce", "familia": '"Open Sauce Sans", "Open Sauce", "Open Sauce One"', "peso": 400, "largura": .54},
     "opensauce-bold": {"nome": "Open Sauce Bold", "familia": '"Open Sauce Sans", "Open Sauce", "Open Sauce One"', "peso": 700, "largura": .57},
@@ -68,17 +69,30 @@ VISUAL_PADRAO = {
     "espacamento": 0,            # espaço entre letras, em centésimos do tamanho (-10 a 40)
 }
 
+# Legenda no padrão das edições de referência (análise dos projetos do CapCut):
+# 2 a 3 palavras, uma linha, minúsculas, sem pontuação, branca pequena com sombra
+# leve no terço de baixo, fade em cada bloco. O destaque SUBSTITUI a legenda:
+# a palavra sai do fluxo e aparece sozinha, ~1,8x maior, na fonte de destaque.
 LEGENDA_PADRAO = {
     **VISUAL_PADRAO,
-    "cor_destaque": "#FFD84D",   # palavra falada e palavras marcadas
-    "modo_ativa": "cor",         # cor | fundo | nenhum
-    "animacao": "pop",           # pop | fade | nenhuma
+    "tamanho": 52, "contorno": True, "espessura": 2.5, "cor_contorno": "#292929", "sombra": True,
+    "minusculas": True,
+    "max_caracteres": 22,
+    "cor_destaque": "#FFFFFF",   # cor da palavra destacada (ou falada, no modo "cor")
+    "cor_destaque2": "#FFFFFF",  # segunda cor, alternada com a primeira
+    "fonte_destaque": "@destaque",
+    "fonte_destaque2": None,     # segunda fonte de destaque, alternada (ex.: serifa e manuscrita)
+    "escala_destaque": 1.8,
+    "modo_destaque": "substitui",  # substitui | cor
+    "modo_ativa": "nenhum",      # palavra falada: cor | fundo | nenhum
+    "animacao": "fade",          # pop | fade | nenhuma
     "palavras": 3,
 }
 
+# Título-gancho: frase inteira em caixa sólida na cor da marca, no terço de cima, por 5 a 6 s.
 GANCHO_PADRAO = {
-    **VISUAL_PADRAO, "fonte": "@destaque", "tamanho": 58, "cor": "#111111",
-    "contorno": False, "sombra": False, "fundo": "caixa", "cor_fundo": "#FFFFFF",
+    **VISUAL_PADRAO, "fonte": "@destaque", "tamanho": 58, "cor": "#FFFFFF",
+    "contorno": False, "sombra": False, "fundo": "caixa", "cor_fundo": "#C2366F", "entrelinhas": 1.2,
 }
 
 # Palavra de impacto: a palavra falada aparece grande, presa ao momento da fala.
@@ -110,6 +124,13 @@ TEXTOS = {
                             "sombra": False, "fundo": "caixa", "cor_fundo": "#FFD84D"}},
     "anotacao": {"nome": "anotação à mão", "entrada": "escreve", "rotacao": -3,
                  "visual": {"fonte": "pincel", "tamanho": 84, "cor": "#FFD84D", "contorno": False, "sombra": True}},
+}
+
+# Cascata: palavras-chave que entram uma por uma, empilhadas, e saem juntas.
+CASCATA = {
+    "padrao": {"nome": "cascata", "entrada": "desliza",
+               "visual": {"fonte": "@destaque", "tamanho": 100, "cor": "#FFFFFF", "caixa_alta": True,
+                          "contorno": False, "sombra": True, "entrelinhas": 1.0}},
 }
 
 DESENHOS = {
@@ -168,7 +189,7 @@ def estilos_para_interface(dados=None):
     return {
         "fontes": todas_as_fontes(dados), "kits": KITS, "paleta": PALETA_PADRAO,
         "visual_padrao": VISUAL_PADRAO, "legenda_padrao": LEGENDA_PADRAO, "gancho_padrao": GANCHO_PADRAO,
-        "impacto": IMPACTO, "textos": TEXTOS, "desenhos": DESENHOS, "entradas": ENTRADAS,
+        "impacto": IMPACTO, "textos": TEXTOS, "cascata": CASCATA, "desenhos": DESENHOS, "entradas": ENTRADAS,
         "filtros_cor": _filtros_cor(), "sons": SONS,
     }
 

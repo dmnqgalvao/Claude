@@ -8,12 +8,13 @@ const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 
 const RITMOS = {
+  seco: { pausa_max: 0.14, folga: 0.05 },
   calmo: { pausa_max: 0.70, folga: 0.16 },
   natural: { pausa_max: 0.40, folga: 0.10 },
   acelerado: { pausa_max: 0.18, folga: 0.06 },
 };
-const NOMES_TIPO = { impacto: "palavra de impacto", imagem: "foto", video: "vídeo", desenho: "desenho", texto: "texto", efeito: "efeito", som: "efeito sonoro" };
-const NOMES_EFEITO = { zoom: "zoom rápido", tremida: "tremida", flash: "flash" };
+const NOMES_TIPO = { cascata: "cascata", impacto: "palavra de impacto", imagem: "foto", video: "vídeo", desenho: "desenho", texto: "texto", efeito: "efeito", som: "efeito sonoro" };
+const NOMES_EFEITO = { zoom: "zoom rápido", escada: "escada de zoom", tremida: "tremida", flash: "flash", pb: "preto e branco" };
 
 const S = {
   proj: null, mtime: null, plano: null, estilos: null,
@@ -119,6 +120,7 @@ function tudo() {
   desenharKits();
   desenharPaleta();
   desenharVisuais();
+  desenharExtras();
   desenharCor();
   desenharTrilhaFundo();
   atualizarPlano();
@@ -134,13 +136,13 @@ function segDe(t) {
 function paraSaida(t) {
   const segs = S.plano?.segmentos || [];
   const s = segDe(t);
-  if (s) return s.out + (t - s.ini);
+  if (s) return s.out + (t - s.ini) / (s.vel || 1);
   const prox = segs.find(s => s.ini > t);
   return prox ? prox.out : (S.plano?.duracao_saida || 0);
 }
 function paraOriginal(out) {
   const segs = S.plano?.segmentos || [];
-  for (const s of segs) { const d = s.fim - s.ini; if (out >= s.out && out < s.out + d) return s.ini + (out - s.out); }
+  for (const s of segs) { const v = s.vel || 1, d = (s.fim - s.ini) / v; if (out >= s.out && out < s.out + d) return s.ini + (out - s.out) * v; }
   return segs.length ? segs[segs.length - 1].fim - 0.01 : 0;
 }
 function palavraAtual() {
@@ -371,6 +373,42 @@ function editorVisual(alvo, visual, aoMudar, { tamanho = [20, 220], fonteComPape
   grade.appendChild(campoFaixa("espaço entre linhas", 0.7, 2.2, 0.02, v.entrelinhas ?? 1.14, x => x.toFixed(2).replace(".", ","), x => set("entrelinhas", x)));
   grade.appendChild(campoFaixa("espaço entre letras", -10, 40, 1, v.espacamento || 0, x => (x > 0 ? "+" : "") + x, x => set("espacamento", x)));
   alvo.appendChild(grade);
+}
+
+function desenharExtras() {
+  const aj = S.proj.ajustes, zc = aj.zoom_cortes ||= { ativo: false, intensidade: 1.3, frequencia: .35 };
+  const r = $("#ritmo-extra"); r.innerHTML = "";
+  const g = document.createElement("div"); g.className = "vis";
+  g.appendChild(linha("velocidade", campoPilulas([["1", "normal"], ["1.1", "1,1×"], ["1.2", "1,2×"], ["1.3", "1,3×"]], String(aj.velocidade || 1),
+    v => { aj.velocidade = +v; mudou({ controles: false }); setTimeout(desenharExtras, 50); })));
+  g.appendChild(campoFaixa("velocidade exata", .8, 1.6, .01, aj.velocidade || 1, x => Math.abs(x - 1) < .005 ? "normal" : x.toFixed(2).replace(".", ",") + "×", v => { aj.velocidade = v; mudou({ controles: false }); }));
+  const ch = campoChave("zoom nos cortes (alterna plano normal e fechado)", zc.ativo, v => { zc.ativo = v; mudou({ controles: false }); setTimeout(desenharExtras, 50); });
+  g.appendChild(ch);
+  if (zc.ativo) {
+    g.appendChild(campoFaixa("quanto fecha", 1.05, 1.7, .01, zc.intensidade, x => "+" + Math.round((x - 1) * 100) + "%", v => { zc.intensidade = v; mudou({ controles: false }); }));
+    g.appendChild(campoFaixa("em quantos cortes", .1, .5, .01, zc.frequencia, x => Math.round(x * 100) + "%", v => { zc.frequencia = v; mudou({ controles: false }); }));
+  }
+  r.appendChild(g);
+
+  const lv = S.proj.legenda.visual, d = $("#legenda-destaque"); d.innerHTML = "";
+  const gd = document.createElement("div"); gd.className = "vis";
+  gd.appendChild(linha("palavra destacada", campoPilulas([["substitui", "aparece sozinha, maior"], ["cor", "muda de cor no meio da frase"]], lv.modo_destaque || "substitui", v => { lv.modo_destaque = v; mudou({ controles: false }); setTimeout(desenharExtras, 50); })));
+  if ((lv.modo_destaque || "substitui") === "substitui") {
+    const f1 = document.createElement("label"); f1.className = "campo"; f1.innerHTML = `fonte do destaque <select>${opcoesFonte(lv.fonte_destaque || "@destaque")}</select>`;
+    f1.querySelector("select").onchange = e => { lv.fonte_destaque = e.target.value; mudou({ controles: false }); };
+    const f2 = document.createElement("label"); f2.className = "campo"; f2.innerHTML = `segunda fonte (alterna) <select><option value="">nenhuma</option>${opcoesFonte(lv.fonte_destaque2 || "")}</select>`;
+    f2.querySelector("select").onchange = e => { lv.fonte_destaque2 = e.target.value || null; mudou({ controles: false }); };
+    gd.appendChild(f1); gd.appendChild(f2);
+    gd.appendChild(linha("cor do destaque", controleCor(lv.cor_destaque || "#FFFFFF", c => { lv.cor_destaque = c; mudou({ controles: false }); })));
+    gd.appendChild(linha("segunda cor", controleCor(lv.cor_destaque2 || lv.cor_destaque || "#FFFFFF", c => { lv.cor_destaque2 = c; mudou({ controles: false }); })));
+    gd.appendChild(campoFaixa("tamanho do destaque", 1.2, 3, .05, lv.escala_destaque || 1.8, x => x.toFixed(1).replace(".", ",") + "×", v => { lv.escala_destaque = v; mudou({ controles: false }); }));
+  }
+  gd.appendChild(campoFaixa("máximo de letras por bloco", 10, 40, 1, lv.max_caracteres || 22, x => x, v => { lv.max_caracteres = v; mudou({ controles: false }); }));
+  gd.appendChild(campoChave("tudo em minúsculas", lv.minusculas, v => { lv.minusculas = v; mudou({ controles: false }); }));
+  d.appendChild(gd);
+
+  const sa = $("#sons-auto"); sa.innerHTML = "";
+  sa.appendChild(campoChave("sons automáticos: clique antes de cada palavra-chave, whoosh nas fotos que entram, ding no botão de chamada", aj.sons_auto, v => { aj.sons_auto = v; mudou({ controles: false }); }));
 }
 
 function desenharVisuais() {
@@ -613,6 +651,11 @@ $$(".adicionar [data-novo]").forEach(b => b.onclick = () => {
   if (tipo === "cta") c = { id: novoId("txt"), tipo: "texto", estilo: "cta", texto: "comenta EU QUERO", ini: 0, ate_o_fim: true, x: .5, y: .8, tamanho: 1 };
   if (tipo === "efeito") c = { id: novoId("efe"), tipo: "efeito", efeito: "zoom", palavra: p.i, duracao: 1.2, intensidade: 1.18, x: .5, y: .42 };
   if (tipo === "som") c = { id: novoId("som"), tipo: "som", som: "whoosh", palavra: p.i, volume: .8 };
+  if (tipo === "cascata") {
+    const prox = S.proj.palavras.filter(w => !w.cortada && w.i >= p.i).slice(0, 3);
+    c = { id: novoId("cas"), tipo: "cascata", y: .3, passo: .07, tamanho: 1, variar: true,
+          linhas: prox.map(w => ({ texto: limpa(w.t), palavra: w.i })) };
+  }
   adicionarCamada(c);
 });
 
@@ -650,7 +693,7 @@ function desenharTrilhas() {
   let html = `<div class="regua" id="regua">${regua}</div><div class="agulha"></div>`;
   for (let f = 0; f < Math.max(1, faixas.length); f++) {
     html += `<div class="faixa">` + lista.filter(c => c._faixa === f).map(c => {
-      const nome = c.texto || c.arquivo || (S.estilos.desenhos[c.forma]?.nome) || NOMES_EFEITO[c.efeito] || (c.tipo === "som" ? "♪ " + c.som : NOMES_TIPO[c.tipo]);
+      const nome = c.texto || (c.linhas || []).map(l => l.texto).join(" / ") || c.arquivo || (S.estilos.desenhos[c.forma]?.nome) || NOMES_EFEITO[c.efeito] || (c.tipo === "som" ? "♪ " + c.som : NOMES_TIPO[c.tipo]);
       return `<div class="barra-camada ${c.tipo}${c.id === S.sel ? " sel" : ""}" data-id="${c.id}"
         style="left:${c.ini_out / total * 100}%;width:${(c.fim_out - c.ini_out) / total * 100}%" title="${esc(nome)}">${esc(String(nome).replace(/\|/g, " "))}<span class="ponta"></span></div>`;
     }).join("") + `</div>`;
@@ -719,7 +762,8 @@ function desenharEditorCamada(forcar) {
     sel.innerHTML = `arquivo <select>${S.insertos.filter(i => i.tipo === c.tipo).map(i => `<option ${i.nome === c.arquivo ? "selected" : ""}>${esc(i.nome)}</option>`).join("")}</select>`;
     sel.querySelector("select").onchange = e => mexe("arquivo", e.target.value);
     corpo.appendChild(sel);
-    corpo.appendChild(linha("jeito", campoPilulas([["cartao", "cartão flutuando"], ["tela", "tela inteira"]], c.modo || "cartao", v => { mexe("modo", v); setTimeout(() => desenharEditorCamada(true), 80); })));
+    corpo.appendChild(linha("jeito", campoPilulas([["cartao", "cartão flutuando"], ["metade", "meia tela"], ["tela", "tela inteira"]], c.modo || "cartao", v => { mexe("modo", v); setTimeout(() => desenharEditorCamada(true), 80); })));
+    if (c.modo === "metade") corpo.appendChild(linha("lado", campoPilulas([["cima", "metade de cima"], ["baixo", "metade de baixo"]], c.lado || "cima", v => mexe("lado", v))));
     if (c.tipo === "imagem" && c.modo !== "tela") {
       corpo.appendChild(linha("moldura", campoPilulas([["polaroid", "borda polaroid"], ["fita", "polaroid com fita"], ["arredondada", "cantos arredondados"], ["celular", "tela de celular"], ["sombra", "só a foto com sombra"], ["nenhuma", "só a foto"], ["sem", "png recortado"]], c.moldura || "polaroid", v => mexe("moldura", v))));
       corpo.appendChild(linha("movimento", campoPilulas([["", "parado"], ["flutua", "flutuando"], ["aproxima", "aproximando devagar"], ["gira", "girando devagar"]], c.movimento || "", v => mexe("movimento", v || null))));
@@ -735,6 +779,25 @@ function desenharEditorCamada(forcar) {
     corpo.appendChild(linha("forma", campoPilulas(Object.entries(S.estilos.desenhos).map(([k, d]) => [k, d.nome]), c.forma, v => mexe("forma", v))));
     corpo.appendChild(linha("cor", controleCor(c.cor || "#E8352E", v => mexe("cor", v))));
     corpo.appendChild(campoFaixa("espessura do traço", 3, 30, 1, c.espessura || 12, x => x + "px", v => mexe("espessura", v)));
+  }
+  if (c.tipo === "cascata") {
+    const lista = document.createElement("div"); lista.className = "largo lista-titulos";
+    (c.linhas || []).forEach((ln, i) => {
+      const item = document.createElement("div"); item.className = "item-titulo";
+      const p = S.proj.palavras[ln.palavra];
+      item.innerHTML = `<span class="quando">${p ? fmtCurto(paraSaida(p.ini)) : "?"}</span><input type="text" value="${esc(ln.texto)}">
+        <button class="btn borda pequeno" title="faz essa linha entrar na palavra que está tocando agora">entra agora</button><button class="remover" title="tirar linha">×</button>`;
+      item.querySelector("input").oninput = e => { ln.texto = e.target.value; mudou({ controles: false }); };
+      item.querySelector(".btn").onclick = () => { const w = palavraAtual(); if (w) { ln.palavra = w.i; delete ln.ini; mudou({ controles: false }); desenharEditorCamada(true); } };
+      item.querySelector(".remover").onclick = () => { c.linhas.splice(i, 1); mudou({ controles: false }); desenharEditorCamada(true); };
+      lista.appendChild(item);
+    });
+    corpo.appendChild(lista);
+    const mais = document.createElement("button"); mais.className = "btn borda pequeno"; mais.textContent = "+ linha na palavra que está tocando";
+    mais.onclick = () => { const w = palavraAtual(); if (!w) return; (c.linhas ||= []).push({ texto: limpa(w.t), palavra: w.i }); mudou({ controles: false }); desenharEditorCamada(true); };
+    corpo.appendChild(mais);
+    corpo.appendChild(campoChave("cada linha entra de um jeito", c.variar, v => mexe("variar", v)));
+    corpo.appendChild(campoFaixa("distância entre as linhas", .03, .15, .005, c.passo ?? .07, x => Math.round(x * 1920) + "px", v => mexe("passo", v)));
   }
   if (c.tipo === "efeito") {
     corpo.appendChild(linha("efeito", campoPilulas(Object.entries(NOMES_EFEITO), c.efeito, v => { mexe("efeito", v); setTimeout(() => desenharEditorCamada(true), 80); })));
@@ -757,7 +820,7 @@ function desenharEditorCamada(forcar) {
     corpo.appendChild(linha("som na entrada", campoPilulas([["", "nenhum"], ...Object.keys(S.estilos.sons).map(k => [k, k])], c.som || "",
       v => { mexe("som", v || null); if (v) tocarSom(v, c.som_volume ?? .8); })));
   }
-  if (c.tipo !== "video" && c.tipo !== "desenho" && c.tipo !== "efeito" && c.tipo !== "som") {
+  if (c.tipo !== "video" && c.tipo !== "desenho" && c.tipo !== "efeito" && c.tipo !== "som" && c.tipo !== "cascata" && c.modo !== "metade") {
     const ent = cp?.entrada || c.entrada || "pop";
     corpo.appendChild(linha("entrada", campoPilulas([["pop", "pop"], ["desliza", "sobe"], ["cai", "cai do alto"], ["esquerda", "vem da esquerda"], ["direita", "vem da direita"], ["fade", "aparece"], ["fadelento", "esmaece devagar"], ["escreve", "escrevendo"], ["nenhuma", "seco"]], ent, v => mexe("entrada", v))));
   }
@@ -767,7 +830,7 @@ function desenharEditorCamada(forcar) {
     corpo.appendChild(at);
   }
 
-  const telaInteira = (c.tipo === "imagem" || c.tipo === "video") && c.modo === "tela";
+  const telaInteira = (c.tipo === "imagem" || c.tipo === "video") && (c.modo === "tela" || c.modo === "metade");
   if (!telaInteira && c.tipo !== "efeito" && c.tipo !== "som") {
     const tamDef = c.tipo === "desenho" || c.tipo === "imagem" || c.tipo === "video" ? [.1, 1.2, .01, c.tamanho ?? .36, x => Math.round(x * 100) + "% da largura"] : [.3, 3, .05, c.tamanho ?? 1, x => Math.round(x * 100) + "%"];
     corpo.appendChild(campoFaixa("tamanho", tamDef[0], tamDef[1], tamDef[2], tamDef[3], tamDef[4], v => mexe("tamanho", v)));
@@ -779,8 +842,8 @@ function desenharEditorCamada(forcar) {
   if (!c.ate_o_fim && c.tipo !== "som") corpo.appendChild(campoFaixa("duração", .3, 12, .1, c.duracao ?? 2, seg, v => mexe("duracao", v)));
   ed.appendChild(corpo);
 
-  if (c.tipo === "impacto" || c.tipo === "texto") {
-    const tabela = c.tipo === "impacto" ? S.estilos.impacto : S.estilos.textos;
+  if (c.tipo === "impacto" || c.tipo === "texto" || c.tipo === "cascata") {
+    const tabela = c.tipo === "impacto" ? S.estilos.impacto : c.tipo === "cascata" ? S.estilos.cascata : S.estilos.textos;
     const def = tabela[c.estilo] || Object.values(tabela)[0];
     const base = Object.assign({}, S.estilos.visual_padrao, def.visual, c.visual || {});
     const det = document.createElement("details"); det.className = "dobra"; det.open = true;
@@ -905,14 +968,15 @@ function desenharCor() {
   const c = S.proj.cor;
   alvo.innerHTML = "";
   const grade = document.createElement("div"); grade.className = "vis";
-  const nomes = { nenhum: "original", quente: "quente", frio: "frio", vivo: "vivo", suave: "suave", filme: "filme", pb: "preto e branco" };
+  const nomes = { nenhum: "original", quente_nitido: "quente e nítido", quente: "quente", frio: "frio", vivo: "vivo", suave: "suave", filme: "filme", pb: "preto e branco" };
   grade.appendChild(linha("filtro", campoPilulas(Object.keys(S.estilos.filtros_cor).map(k => [k, nomes[k] || k]), c.filtro || "nenhum", v => {
-    Object.assign(c, S.estilos.filtros_cor[v], { filtro: v }); mudou({ controles: false }); setTimeout(desenharCor, 50);
+    Object.assign(c, { nitidez: 0 }, S.estilos.filtros_cor[v], { filtro: v }); mudou({ controles: false }); setTimeout(desenharCor, 50);
   })));
   const mexe = (k, v) => { c[k] = v; c.filtro = "personalizado"; mudou({ controles: false }); };
   grade.appendChild(campoFaixa("brilho", -.25, .25, .005, c.brilho || 0, x => (x > 0 ? "+" : "") + Math.round(x * 100), v => mexe("brilho", v)));
   grade.appendChild(campoFaixa("contraste", .6, 1.6, .01, c.contraste ?? 1, x => Math.round(x * 100) + "%", v => mexe("contraste", v)));
   grade.appendChild(campoFaixa("saturação", 0, 2, .01, c.saturacao ?? 1, x => Math.round(x * 100) + "%", v => mexe("saturacao", v)));
+  grade.appendChild(campoFaixa("nitidez", 0, 1.5, .05, c.nitidez || 0, x => x ? Math.round(x * 100) + "%" : "sem", v => mexe("nitidez", v)));
   grade.appendChild(campoFaixa("temperatura", -1, 1, .01, c.temperatura || 0, x => x > .02 ? "mais quente" : x < -.02 ? "mais fria" : "neutra", v => mexe("temperatura", v)));
   const auto = campoChave("correção automática ligada", c.auto, v => { c.auto = v; mudou({ controles: false }); });
   auto.classList.add("largo");
@@ -931,6 +995,7 @@ $("#cor-auto").onclick = async e => {
 };
 function aplicarCorPrevia() {
   const c = S.plano?.cor; const cel = $("#celular");
+  $(".tela-video").style.filter = S.pbAgora ? (c && !c.neutra ? "url(#filtro-cor) grayscale(1)" : "grayscale(1)") : "";
   if (!c || c.neutra) { cel.classList.remove("cor-ativa"); return; }
   cel.classList.add("cor-ativa");
   $("#fc-ganhos").setAttribute("values", `${c.r} 0 0 0 0  0 ${c.g} 0 0 0  0 0 ${c.b} 0 0  0 0 0 1 0`);
@@ -966,8 +1031,13 @@ function efeitosPrevia() {
   if (!S.plano) return;
   const out = paraSaida(video.currentTime);
   const ef = Motion.efeitoBase(S.plano.camadas, out);
+  const segAtual = segDe(video.currentTime);
+  if (segAtual && segAtual.zoom > 1.001) { if (ef.z === 1) { ef.fx = .5; ef.fy = .42; } ef.z *= segAtual.zoom; }
+  const vel = S.plano.velocidade || 1;
+  if (Math.abs(video.playbackRate - vel) > .001) { video.playbackRate = vel; fundo.playbackRate = vel; }
   const tv = $(".tela-video");
   tv.style.transformOrigin = `${ef.fx * 100}% ${ef.fy * 100}%`;
+  S.pbAgora = (S.plano.camadas || []).some(c => c.tipo === "efeito" && c.efeito === "pb" && out >= c.ini_out && out < c.fim_out);
   tv.style.transform = ef.z !== 1 || ef.sx || ef.sy ? `translate(${-ef.sx * 100}%, ${-ef.sy * 100}%) scale(${ef.z})` : "";
   aplicarCorPrevia();
   if (!video.paused && out > outAnterior && out - outAnterior < .3) {

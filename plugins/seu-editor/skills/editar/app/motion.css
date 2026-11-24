@@ -59,6 +59,10 @@
 .m-tela-cheia { left: 0; top: 0; width: 1080px; height: 1920px; overflow: hidden; background: #000; }
 .m-tela-cheia img, .m-tela-cheia video { width: 100%; height: 100%; object-fit: cover; display: block; transform-origin: 50% 50%; }
 
+.m-metade { position: absolute; overflow: hidden; background: #000; }
+.m-metade img, .m-metade video { width: 100%; height: 100%; object-fit: cover; display: block; transform-origin: 50% 50%; }
+.m-cascata { pointer-events: none; }
+.m-cascata > div { pointer-events: auto; }
 .m-desenho { overflow: visible; height: auto; }
 .m-svg-cheio { left: 0; top: 0; width: 1080px; height: 1920px; overflow: visible; }
 
