@@ -490,6 +490,11 @@ ficou em segundo plano.
 
 ## Se algo der errado
 
+- **A exportação não sai pela interface**: leia `estado.json` e `ffmpeg.log` na pasta do
+  projeto. Navegador invisível faltando ou de outra versão é recuperado sozinho (baixa de
+  novo ou usa o Chrome do computador); se ainda falhar, rode o `instalar.py` de novo e
+  reinicie o `servir`. Rode `ed exportar "$PRJ"` no terminal pra ver o erro inteiro.
+
 - Interface não abre: confira se o servidor ainda roda e passe o endereço de novo.
 - Exportação falhou: a mensagem aparece na aba exportar. Os arquivos `filtro.txt` e
   `ffmpeg.log` na pasta do projeto mostram o detalhe.

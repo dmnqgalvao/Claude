@@ -283,10 +283,32 @@ def nome_arquivo(t):
     return t or "video"
 
 
-def _abrir_navegador(pw):
+def _abrir_navegador(pw, aviso=lambda *_: None):
+    """Abre o navegador invisível. Se o do Playwright sumiu ou ficou de outra versão (acontece
+    quando o pacote atualiza), baixa de novo; se mesmo assim não abrir, usa o Chrome do
+    computador."""
+    import sys
     caminho = os.environ.get("SEU_EDITOR_CHROMIUM")
-    opcoes = {"executable_path": caminho} if caminho else {}
-    return pw.chromium.launch(**opcoes)
+    if caminho:
+        return pw.chromium.launch(executable_path=caminho)
+    try:
+        return pw.chromium.launch()
+    except Exception as primeiro:
+        aviso("baixando o navegador invisível de novo (só desta vez)")
+        r = subprocess.run([sys.executable, "-m", "playwright", "install", "chromium", "--only-shell"], capture_output=True)
+        if r.returncode != 0:
+            subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"], capture_output=True)
+        try:
+            return pw.chromium.launch()
+        except Exception:
+            pass
+        for canal in ("chrome", "msedge", "chromium"):
+            try:
+                return pw.chromium.launch(channel=canal)
+            except Exception:
+                continue
+        raise RuntimeError("não consegui abrir o navegador invisível que desenha as camadas. "
+                           "Peça pro Claude rodar o instalar.py de novo. Detalhe: " + str(primeiro)[-400:])
 
 
 def exportar(pasta, previa=False, log=lambda *_: None):
@@ -406,7 +428,7 @@ def exportar(pasta, previa=False, log=lambda *_: None):
     proc = None
     try:
         with sync_playwright() as pw:
-            nav = _abrir_navegador(pw)
+            nav = _abrir_navegador(pw, aviso=lambda m: P.escrever_estado(pasta, mensagem=m))
             pag = nav.new_page(viewport={"width": largura, "height": altura})
             pag.goto(url + "render", wait_until="load")
             estilos = E.estilos_para_interface(P.dados_dir())
