@@ -23,14 +23,157 @@ RITMOS = {
 }
 
 
+EXT_VIDEO = (".mp4", ".mov", ".m4v", ".webm", ".avi", ".mkv", ".mts")
+EXT_AUDIO = (".mp3", ".wav", ".m4a", ".aac", ".ogg", ".opus", ".flac")
+
+
+def sondar(caminho):
+    """Tamanho, fps, duração, se tem vídeo, se tem áudio e se é HDR."""
+    info = {"largura": 1080, "altura": 1920, "fps": 30.0, "duracao": 0.0,
+            "tem_video": False, "tem_audio": False, "hdr": False}
+    try:
+        d = json.loads(subprocess.run(
+            ["ffprobe", "-v", "error", "-show_entries",
+             "stream=codec_type,width,height,avg_frame_rate,color_transfer:stream_tags=rotate:"
+             "stream_side_data=rotation:format=duration", "-of", "json", caminho],
+            capture_output=True, text=True, check=True).stdout)
+    except Exception:
+        return info
+    info["duracao"] = float(d.get("format", {}).get("duration") or 0)
+    for s in d.get("streams", []):
+        if s.get("codec_type") == "audio":
+            info["tem_audio"] = True
+        if s.get("codec_type") == "video" and not info["tem_video"] and s.get("width"):
+            w, h = int(s["width"]), int(s["height"])
+            rot = 0
+            for sd in s.get("side_data_list", []) or []:
+                if "rotation" in sd:
+                    rot = int(sd["rotation"])
+            if "tags" in s and "rotate" in s["tags"]:
+                rot = int(s["tags"]["rotate"])
+            if abs(rot) in (90, 270):
+                w, h = h, w
+            num, den = (s.get("avg_frame_rate") or "30/1").split("/")
+            fps = float(num) / float(den) if float(den) else 30.0
+            if fps <= 0 or fps > 120:
+                fps = 30.0
+            info.update(largura=w, altura=h, fps=round(fps, 3), tem_video=True,
+                        hdr=s.get("color_transfer") in ("arib-std-b67", "smpte2084"))
+    return info
+
+
+def montar_arquivos(caminhos):
+    """Arquivos um depois do outro numa linha do tempo única (tempo "virtual")."""
+    arquivos, t = [], 0.0
+    for k, c in enumerate(caminhos):
+        info = sondar(c)
+        if info["duracao"] <= 0.05:
+            continue
+        arquivos.append({"id": f"a{k + 1}", "arquivo": os.path.abspath(c), "nome": os.path.basename(c),
+                         "tipo": "video" if info["tem_video"] else "audio", "info": info,
+                         "ini": round(t, 3), "fim": round(t + info["duracao"], 3),
+                         "modo": "fala", "manter": None})
+        t += info["duracao"]
+    return arquivos
+
+
+def info_do_projeto(arquivos):
+    video = next((a for a in arquivos if a["tipo"] == "video"), None)
+    base = dict(video["info"]) if video else {"largura": 1080, "altura": 1920, "fps": 30.0}
+    base["duracao"] = round(arquivos[-1]["fim"], 3) if arquivos else 0.0
+    return {k: base[k] for k in ("largura", "altura", "fps", "duracao")}
+
+
+def midia_previa(proj):
+    """O arquivo que a interface toca e que a transcrição ouve: o proxy, quando há vários arquivos."""
+    if proj.get("proxy") and os.path.exists(proj["proxy"]):
+        return proj["proxy"]
+    return proj["video"]
+
+
+def precisa_proxy(proj):
+    arqs = proj.get("arquivos") or []
+    return len(arqs) > 1 or any(a["tipo"] == "audio" for a in arqs)
+
+
+PROXY_FORMATO = 2
+
+
+def gerar_proxy(pasta, proj, aviso=lambda *_: None):
+    """Junta todos os arquivos num vídeo leve na linha do tempo do projeto.
+    Cada arquivo entra inteiro (sem cortar as laterais), centralizado numa tela fixa, pra
+    prévia poder enquadrar igual à exportação. Onde cada um ficou vai em proxy_caixas."""
+    arqs = proj["arquivos"]
+    destino = os.path.join(pasta, "_previa")
+    os.makedirs(destino, exist_ok=True)
+    saida = os.path.join(destino, "proxy.mp4")
+    def proporcao(a):
+        i = a.get("info") or {}
+        return float(i.get("largura") or 9) / float(i.get("altura") or 16)
+    em_pe = all(proporcao(a) <= 0.6 for a in arqs if a["tipo"] == "video")
+    cw, ch = (540, 960) if em_pe else (960, 960)
+    entradas, partes, rotulos, caixas = [], [], [], {}
+    zscale = " zscale " in subprocess.run(["ffmpeg", "-hide_banner", "-filters"], capture_output=True, text=True).stdout
+    for k, a in enumerate(arqs):
+        entradas += ["-i", a["arquivo"]]
+        dur = a["fim"] - a["ini"]
+        if a["tipo"] == "video":
+            hdr = ("zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,tonemap=tonemap=hable:desat=0,"
+                   "zscale=t=bt709:m=bt709:r=tv,") if a["info"].get("hdr") and zscale else ""
+            r = proporcao(a)
+            w, h = (cw, cw / r) if r > cw / ch else (ch * r, ch)
+            w, h = max(2, int(round(w / 2)) * 2), max(2, int(round(h / 2)) * 2)
+            x, y = (cw - w) // 2, (ch - h) // 2
+            caixas[a["id"]] = [round(x / cw, 5), round(y / ch, 5), round(w / cw, 5), round(h / ch, 5)]
+            partes.append(f"[{k}:v]{hdr}scale={w}:{h},pad={cw}:{ch}:{x}:{y}:black,"
+                          f"fps=30,format=yuv420p,setsar=1,trim=duration={dur:.3f},setpts=PTS-STARTPTS[v{k}]")
+        else:
+            partes.append(f"color=c=black:s={cw}x{ch}:r=30:d={dur:.3f},format=yuv420p,setsar=1[v{k}]")
+        if a["info"].get("tem_audio"):
+            partes.append(f"[{k}:a]aresample=48000,aformat=channel_layouts=stereo,apad=whole_dur={dur:.3f},"
+                          f"atrim=duration={dur:.3f},asetpts=PTS-STARTPTS[a{k}]")
+        else:
+            partes.append(f"anullsrc=r=48000:cl=stereo,atrim=duration={dur:.3f}[a{k}]")
+        rotulos.append(f"[v{k}][a{k}]")
+    partes.append("".join(rotulos) + f"concat=n={len(arqs)}:v=1:a=1[v][a]")
+    aviso("juntando os arquivos pra prévia")
+    r = subprocess.run(["ffmpeg", "-y", "-v", "error", *entradas, "-filter_complex", ";".join(partes),
+                        "-map", "[v]", "-map", "[a]", "-c:v", "libx264", "-preset", "veryfast", "-crf", "27", "-g", "30",
+                        "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", saida], capture_output=True, text=True)
+    if r.returncode != 0:
+        raise RuntimeError("não consegui juntar os arquivos: " + r.stderr[-800:])
+    proj["proxy"] = saida
+    proj["proxy_caixas"] = caixas
+    proj["proxy_formato"] = PROXY_FORMATO
+    return saida
+
+
+def proxy_desatualizado(proj):
+    return precisa_proxy(proj) and (not proj.get("proxy") or not os.path.exists(proj["proxy"])
+                                    or proj.get("proxy_formato") != PROXY_FORMATO)
+
+
+def quadro_de(arquivo):
+    """Enquadramento escolhido pra um arquivo: zoom (1 = cabe certinho) e qual parte aparece
+    (x e y de 0 a 1; 0,5 é o centro)."""
+    q = (arquivo or {}).get("quadro") or {}
+    return {"zoom": max(0.5, min(4.0, float(q.get("zoom", 1.0)))),
+            "x": max(0.0, min(1.0, float(q.get("x", 0.5)))),
+            "y": max(0.0, min(1.0, float(q.get("y", 0.5))))}
+
+
 def projeto_padrao(video, nome, marca=None):
+    """video: um caminho ou uma lista de caminhos (takes, clipes de vlog, narração)."""
     marca = marca or {}
     ritmo = marca.get("ritmo") if marca.get("ritmo") in RITMOS else "seco"
+    caminhos = video if isinstance(video, (list, tuple)) else [video]
+    arquivos = montar_arquivos(caminhos)
     return normalizar({
-        "versao": 2,
+        "versao": 3,
         "nome": nome,
-        "video": os.path.abspath(video),
-        "info": sondar_video(video),
+        "video": arquivos[0]["arquivo"] if arquivos else os.path.abspath(caminhos[0]),
+        "arquivos": arquivos,
+        "info": info_do_projeto(arquivos),
         "palavras": [],
         "ajustes": {"ritmo": ritmo, "cortar_pausas": True, **RITMOS[ritmo],
                     "velocidade": 1.0,
@@ -102,34 +245,20 @@ def normalizar(proj):
     proj.setdefault("trilha", {"arquivo": None, "volume": 0.14, "abaixar_na_fala": True})
     proj.setdefault("sugestoes", {"ganchos": []})
     proj.setdefault("formato", {"enquadramento": "preencher", "volume": True})
-    proj["versao"] = 2
+    if not proj.get("arquivos") and proj.get("video"):
+        # projeto de um arquivo só, das versões anteriores
+        info = dict(proj.get("info") or {})
+        info.setdefault("tem_video", True); info.setdefault("tem_audio", True); info.setdefault("hdr", False)
+        proj["arquivos"] = [{"id": "a1", "arquivo": proj["video"], "nome": os.path.basename(proj["video"]),
+                             "tipo": "video", "info": info, "ini": 0.0, "fim": float(info.get("duracao", 0)),
+                             "modo": "fala", "manter": None}]
+    proj["versao"] = max(3, int(proj.get("versao", 2)))
     return proj
 
 
 def sondar_video(video):
-    try:
-        out = subprocess.run(
-            ["ffprobe", "-v", "error", "-select_streams", "v:0",
-             "-show_entries", "stream=width,height,avg_frame_rate:stream_tags=rotate:stream_side_data=rotation:format=duration",
-             "-of", "json", video],
-            capture_output=True, text=True, check=True).stdout
-        d = json.loads(out)
-        s = d["streams"][0]
-        w, h = int(s["width"]), int(s["height"])
-        rot = 0
-        for sd in s.get("side_data_list", []) or []:
-            if "rotation" in sd:
-                rot = int(sd["rotation"])
-        if "tags" in s and "rotate" in s["tags"]:
-            rot = int(s["tags"]["rotate"])
-        if abs(rot) in (90, 270):
-            w, h = h, w
-        num, den = (s.get("avg_frame_rate") or "30/1").split("/")
-        fps = float(num) / float(den) if float(den) else 30.0
-        return {"largura": w, "altura": h, "fps": round(fps, 3),
-                "duracao": float(d["format"]["duration"])}
-    except Exception:
-        return {"largura": 1080, "altura": 1920, "fps": 30.0, "duracao": 0.0}
+    s = sondar(video)
+    return {k: s[k] for k in ("largura", "altura", "fps", "duracao")}
 
 
 def dados_dir():

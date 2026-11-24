@@ -56,10 +56,10 @@
 .m-cartao.moldura-fita::before { content: ""; position: absolute; left: 50%; top: -22px; width: 38%; height: 44px; transform: translateX(-50%) rotate(-3deg); background: rgba(255, 238, 200, .78); box-shadow: 0 2px 6px rgba(0,0,0,.12); }
 .m-cartao img, .m-cartao video { display: block; width: 100%; height: auto; border-radius: 2px; }
 
-.m-tela-cheia { left: 0; top: 0; width: 1080px; height: 1920px; overflow: hidden; background: #000; }
+.m-tela-cheia { left: 0; top: 0; width: 1080px; height: 1920px; overflow: hidden; }
 .m-tela-cheia img, .m-tela-cheia video { width: 100%; height: 100%; object-fit: cover; display: block; transform-origin: 50% 50%; }
 
-.m-metade { position: absolute; overflow: hidden; background: #000; }
+.m-metade { position: absolute; overflow: hidden; }
 .m-metade img, .m-metade video { width: 100%; height: 100%; object-fit: cover; display: block; transform-origin: 50% 50%; }
 .m-cascata { pointer-events: none; }
 .m-cascata > div { pointer-events: auto; }

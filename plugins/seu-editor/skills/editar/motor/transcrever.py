@@ -43,7 +43,7 @@ def transcrever(pasta, modelo="large-v3-turbo", dir_modelos=None, log=print):
 
     P.escrever_estado(pasta, mensagem="ouvindo o vídeo")
     segmentos, _info = modelo_w.transcribe(
-        proj["video"],
+        P.midia_previa(proj),
         language="pt",
         word_timestamps=True,
         vad_filter=True,
@@ -83,6 +83,15 @@ def transcrever(pasta, modelo="large-v3-turbo", dir_modelos=None, log=print):
     proj = P.carregar(pasta)   # relê, a interface pode ter mudado algo
     proj["palavras"] = palavras
     proj["modelo"] = modelo
+    # vários arquivos: clipe de vídeo quase sem fala vira trecho de imagem (vlog, paisagem, b-roll)
+    arqs = proj.get("arquivos") or []
+    if len(arqs) > 1:
+        for a in arqs:
+            if a["tipo"] != "video" or a.get("modo_manual"):
+                continue
+            dur = max(0.1, a["fim"] - a["ini"])
+            n = sum(1 for p in palavras if a["ini"] <= (p["ini"] + p["fim"]) / 2 < a["fim"])
+            a["modo"] = "imagem" if n < 3 or n / dur < 0.35 else "fala"
     P.salvar(pasta, proj)
     auto = sum(1 for p in palavras if p.get("cortada"))
     P.escrever_estado(pasta, tarefa=None, progresso=1.0,

@@ -93,7 +93,7 @@ class Estudio(BaseHTTPRequestHandler):
             return self._estatico(E.PASTA_FONTES, rota[8:])
         if rota == "/video":
             proj = P.carregar(self.pasta)
-            return self._arquivo(proj["video"])
+            return self._arquivo(P.midia_previa(proj))
         if rota.startswith("/cores/"):
             from .cor import PASTA_CORES
             return self._estatico(PASTA_CORES, rota[7:])
@@ -101,6 +101,8 @@ class Estudio(BaseHTTPRequestHandler):
             return self._estatico(os.path.join(self.dados, "cores"), rota[14:])
         if rota.startswith("/sons/"):
             return self._estatico(PASTA_SONS, rota[6:])
+        if rota.startswith("/sons-pessoa/"):
+            return self._estatico(os.path.join(self.dados, "sons"), rota[13:])
         if rota == "/api/onda":
             return self._json(forma_de_onda(self.pasta))
         if rota == "/render":
@@ -247,7 +249,7 @@ class Estudio(BaseHTTPRequestHandler):
             proj = R.aplicar(P.carregar(self.pasta), R.ler(self.dados, d.get("nome", "")))
             if proj["cor"].pop("auto_pendente", None):
                 from . import cor as C
-                proj["cor"].update(C.analisar(proj["video"]), auto=True)
+                proj["cor"].update(C.analisar(P.midia_previa(proj)), auto=True)
             P.salvar(self.pasta, proj)
             return self._json({"ok": True})
         if rota == "/api/cores":
@@ -262,10 +264,28 @@ class Estudio(BaseHTTPRequestHandler):
             with open(os.path.join(pasta, nome + ".cube"), "wb") as f:
                 f.write(corpo)
             return self._json({"ok": True, "id": nome})
+        if rota == "/api/sons":
+            from .estilos import EXT_SONS
+            q = parse_qs(urlparse(self.path).query)
+            nome = os.path.basename(unquote(q.get("nome", [""])[0]))
+            base, ext = os.path.splitext(nome)
+            if ext.lower() not in EXT_SONS:
+                return self._json({"erro": "envie um som .wav, .mp3, .m4a, .aac ou .ogg"}, 400)
+            base = re.sub(r"[^\w\-]+", "-", base.lower()).strip("-") or "meu-som"
+            corpo = self.rfile.read(int(self.headers.get("Content-Length") or 0))
+            pasta = os.path.join(self.dados, "sons")
+            os.makedirs(pasta, exist_ok=True)
+            for e in EXT_SONS:
+                velho = os.path.join(pasta, base + e)
+                if os.path.exists(velho):
+                    os.remove(velho)
+            with open(os.path.join(pasta, base + ext.lower()), "wb") as f:
+                f.write(corpo)
+            return self._json({"ok": True, "id": base})
         if rota == "/api/cor-auto":
             from . import cor as C
             proj = P.carregar(self.pasta)
-            r = C.analisar(proj["video"])
+            r = C.analisar(P.midia_previa(proj))
             return self._json(r)
         if rota == "/api/fontes":
             from . import fontes as F
@@ -320,7 +340,7 @@ def forma_de_onda(pasta, por_segundo=50):
     import subprocess
     proj = P.carregar(pasta)
     taxa = 8000
-    bruto = subprocess.run(["ffmpeg", "-v", "error", "-i", proj["video"], "-vn", "-ac", "1", "-ar", str(taxa),
+    bruto = subprocess.run(["ffmpeg", "-v", "error", "-i", P.midia_previa(proj), "-vn", "-ac", "1", "-ar", str(taxa),
                             "-f", "s16le", "-"], capture_output=True).stdout
     janela = taxa // por_segundo
     n = len(bruto) // 2
@@ -359,10 +379,11 @@ def gerar_recorte_previa(pasta):
     proj = P.carregar(pasta)
     plano = PL.montar_plano(proj)
     faixas = R.faixas_origem(plano, R.faixas_atras(plano))
-    chave = hashlib.md5(json.dumps([proj["video"], faixas]).encode()).hexdigest()[:12]
+    midia = P.midia_previa(proj)
+    chave = hashlib.md5(json.dumps([midia, faixas]).encode()).hexdigest()[:12]
     destino = os.path.join(pasta, "_previa")
     os.makedirs(destino, exist_ok=True)
-    info = proj.get("info", {})
+    info = P.sondar(midia)
     w, h = info.get("largura", 1080), info.get("altura", 1920)
     alt = 640
     larg = int(round(w * alt / h / 2)) * 2
@@ -372,7 +393,7 @@ def gerar_recorte_previa(pasta):
         nome = f"recorte-{chave}-{k}.webm"
         caminho = os.path.join(destino, nome)
         if not os.path.exists(caminho):
-            R.recortar(proj["video"], a, b - a, larg, alt, 24, caminho, previa=True)
+            R.recortar(midia, a, b - a, larg, alt, 24, caminho, previa=True)
         itens.append({"ini": a, "fim": b, "arquivo": nome})
     for velho in os.listdir(destino):
         if velho.startswith("recorte-") and chave not in velho:

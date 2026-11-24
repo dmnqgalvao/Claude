@@ -190,11 +190,51 @@ def estilos_para_interface(dados=None):
         "fontes": todas_as_fontes(dados), "kits": KITS, "paleta": PALETA_PADRAO,
         "visual_padrao": VISUAL_PADRAO, "legenda_padrao": LEGENDA_PADRAO, "gancho_padrao": GANCHO_PADRAO,
         "impacto": IMPACTO, "textos": TEXTOS, "cascata": CASCATA, "desenhos": DESENHOS, "entradas": ENTRADAS,
-        "filtros_cor": _filtros_cor(dados), "sons": SONS,
+        "filtros_cor": _filtros_cor(dados), "sons": sons_disponiveis(dados),
+        "sons_mapa": SONS_MAPA, "sons_momentos": SONS_MOMENTOS,
     }
 
 
-SONS = {"whoosh": "whoosh", "pop": "pop", "ding": "ding", "clique": "clique", "impacto": "impacto", "subida": "subida"}
+SONS = {"pop": "pop", "clique": "clique", "camera": "camera", "whoosh": "whoosh", "ding": "ding",
+        "impacto": "impacto", "subida": "subida"}
+EXT_SONS = (".wav", ".mp3", ".m4a", ".aac", ".ogg")
+
+# qual som entra em cada momento quando os sons automáticos estão ligados
+# (destaque alterna entre os dois da lista)
+SONS_MAPA = {"destaque": ["pop", "clique"], "palavra": "pop", "texto": "clique", "foto": "camera",
+             "cta": "pop", "volume": 1.0}
+SONS_MOMENTOS = [("destaque", "palavra em destaque na legenda"), ("palavra", "palavra-chave grande e cascata"),
+                 ("texto", "texto na tela"), ("foto", "foto ou vídeo que entra"), ("cta", "botão de chamada")]
+
+
+def pasta_sons():
+    import os
+    return os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "sons")
+
+
+def sons_disponiveis(dados=None):
+    """nome -> url. Os sons da pessoa (~/.seu-editor/sons) ficam junto dos que vêm no plugin."""
+    import os
+    sons = {k: f"/sons/{k}.wav" for k in SONS}
+    pasta = os.path.join(dados, "sons") if dados else None
+    if pasta and os.path.isdir(pasta):
+        for nome in sorted(os.listdir(pasta)):
+            base, ext = os.path.splitext(nome)
+            if ext.lower() in EXT_SONS:
+                sons[base] = f"/sons-pessoa/{nome}"
+    return sons
+
+
+def arquivo_do_som(nome, dados=None, pasta_projeto=None):
+    import os
+    if not nome:
+        return None
+    candidatos = [os.path.join(pasta_sons(), nome + ".wav")]
+    if dados:
+        candidatos += [os.path.join(dados, "sons", nome + e) for e in EXT_SONS] + [os.path.join(dados, "sons", nome)]
+    if pasta_projeto:
+        candidatos.append(os.path.join(pasta_projeto, "insertos", nome))
+    return next((c for c in candidatos if os.path.isfile(c)), None)
 
 
 def _filtros_cor(dados=None):

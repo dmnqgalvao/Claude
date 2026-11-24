@@ -48,8 +48,6 @@ def calcular_segmentos(proj):
     cortar_pausas = bool(aj.get("cortar_pausas", True))
     duracao = float(proj.get("info", {}).get("duracao", 0)) or (palavras[-1]["fim"] + 1 if palavras else 0)
 
-    if not palavras:
-        return [{"ini": 0.0, "fim": duracao, "out": 0.0, "vel": 1.0, "zoom": 1.0}] if duracao else []
 
     segs = []
     atual = None
@@ -106,6 +104,8 @@ def calcular_segmentos(proj):
             fim = min(fim, corte_ini)
         atual[1] = min(duracao, max(fim, anterior["fim"]))
         segs.append(atual)
+    if not palavras and duracao:
+        segs = [[0.0, duracao]]
 
     # cortes feitos direto na linha do tempo (tempo do vídeo original)
     for c in sorted(proj.get("cortes_tempo", []), key=lambda c: c["ini"]):
@@ -120,16 +120,60 @@ def calcular_segmentos(proj):
                 novos.append([c["fim"], fim])
         segs = novos
 
+    segs = encaixar_arquivos(proj, segs)
     vel = max(0.5, min(2.0, float(aj.get("velocidade", 1.0))))
     saida = []
     acumulado = 0.0
     for ini, fim in segs:
         if fim - ini < 0.04:
             continue
-        saida.append({"ini": round(ini, 3), "fim": round(fim, 3), "out": round(acumulado, 4), "vel": vel, "zoom": 1.0})
+        arq = arquivo_de(proj, (ini + fim) / 2)
+        saida.append({"ini": round(ini, 3), "fim": round(fim, 3), "out": round(acumulado, 4), "vel": vel, "zoom": 1.0,
+                      "arq": arq})
         acumulado += (fim - ini) / vel
     zoom_nos_cortes(saida, aj.get("zoom_cortes") or {})
     return saida
+
+
+def arquivo_de(proj, t):
+    arqs = proj.get("arquivos") or []
+    for k, a in enumerate(arqs):
+        if a["ini"] - 1e-3 <= t < a["fim"] + 1e-3:
+            return k
+    return 0
+
+
+def encaixar_arquivos(proj, segs):
+    """Arquivos só de imagem (clipe de vlog sem fala, paisagem) entram pelo trecho "manter",
+    não pelos cortes da fala. Depois tudo é quebrado na emenda entre um arquivo e outro."""
+    arqs = proj.get("arquivos") or []
+    if not arqs:
+        return segs
+    imagem = [a for a in arqs if a.get("modo") == "imagem"]
+    for a in imagem:
+        novos = []
+        for ini, fim in segs:
+            if fim <= a["ini"] or ini >= a["fim"]:
+                novos.append([ini, fim])
+                continue
+            if ini < a["ini"]:
+                novos.append([ini, a["ini"]])
+            if fim > a["fim"]:
+                novos.append([a["fim"], fim])
+        segs = novos
+        dur = a["fim"] - a["ini"]
+        m = a.get("manter") or [max(0.0, dur / 2 - 1.25), min(dur, dur / 2 + 1.25)]
+        m0, m1 = max(0.0, float(m[0])), min(dur, float(m[1]))
+        if m1 - m0 > 0.1:
+            segs.append([a["ini"] + m0, a["ini"] + m1])
+    segs.sort()
+    quebrados = []
+    for ini, fim in segs:
+        for a in arqs:
+            ia, ib = max(ini, a["ini"]), min(fim, a["fim"])
+            if ib - ia > 0.04:
+                quebrados.append([ia, ib])
+    return quebrados
 
 
 def zoom_nos_cortes(segs, cfg):
@@ -182,9 +226,13 @@ def montar_plano(proj):
     sem_pont = bool(leg.get("sem_pontuacao", True))
 
     # palavras que ficam, já com o tempo no vídeo editado
+    so_imagem = [(a["ini"], a["fim"]) for a in proj.get("arquivos") or [] if a.get("modo") == "imagem"]
     mantidas = []
     for p in proj.get("palavras", []):
         if p.get("cortada"):
+            continue
+        meio = (p["ini"] + p["fim"]) / 2
+        if any(a <= meio < b for a, b in so_imagem):
             continue
         si = _segmento_de(p, segs) if segs else None
         if si is None:
@@ -215,7 +263,8 @@ def montar_plano(proj):
                 quebra = True
             elif PONTUACAO_FINAL.search(ant["bruto"]) or PONTUACAO_PAUSA.search(ant["bruto"]):
                 quebra = True
-            elif ant["seg"] != w["seg"] and w["ini_out"] - ant["fim_out"] > 0.01:
+            elif ant["seg"] != w["seg"] and (w["ini_out"] - ant["fim_out"] > 0.01
+                                              or segs[ant["seg"]].get("arq") != segs[w["seg"]].get("arq")):
                 quebra = True
             elif w["ini_out"] - ant["fim_out"] > 0.6:
                 quebra = True
@@ -329,36 +378,46 @@ def montar_plano(proj):
                   "posicao": float(g.get("posicao", 0.2))}
 
     sons = []
-    auto = bool(proj.get("ajustes", {}).get("sons_auto"))
+    aj = proj.get("ajustes", {})
+    auto = bool(aj.get("sons_auto"))
+    from .estilos import SONS_MAPA
+    mapa = {**SONS_MAPA, **(aj.get("sons_mapa") or {})}
+    vol_geral = float(mapa.get("volume", 1.0))
 
     def som(nome, t, vol, origem=None):
         if nome and nome != "nenhum" and 0 <= t < total:
-            sons.append({"som": nome, "ini_out": round(max(0.0, t), 3), "volume": vol, "id": origem})
+            sons.append({"som": nome, "ini_out": round(max(0.0, t), 3), "volume": round(vol, 3), "id": origem})
+
+    def auto_som(momento, t, vol, origem=None, alt=0):
+        nome = mapa.get(momento)
+        if isinstance(nome, list):
+            nome = nome[alt % len(nome)] if nome else None
+        som(nome, t, vol * vol_geral, origem)
 
     for c in camadas:
         tipo = c.get("tipo")
         cartao = tipo in ("imagem", "video") and c.get("modo") in ("cartao", "metade")
-        adiant = -0.2 if cartao else (-0.1 if tipo in ("impacto", "texto", "cascata") else 0.0)
+        adiant = -0.12 if cartao else (-0.08 if tipo in ("impacto", "texto", "cascata") else 0.0)
         if tipo == "som":
-            som(c.get("som"), c["ini_out"], float(c.get("volume", 0.8)), c.get("id"))
+            som(c.get("som"), c["ini_out"], float(c.get("volume", 0.6)), c.get("id"))
         elif c.get("som"):
-            som(c["som"], c["ini_out"] + float(c.get("som_atraso", adiant)), float(c.get("som_volume", 0.4)), c.get("id"))
+            som(c["som"], c["ini_out"] + float(c.get("som_atraso", adiant)), float(c.get("som_volume", 0.3)), c.get("id"))
         elif auto:
-            # o som acompanha o texto e a imagem que entra voando, nunca o corte
+            # o som acompanha o texto e a imagem que entra, nunca o corte
             if tipo == "cascata":
                 for ln in c.get("linhas") or []:
-                    som("clique", ln["ini_out"] - 0.1, 0.32, c.get("id"))
+                    auto_som("palavra", ln["ini_out"] - 0.08, 0.26, c.get("id"))
             elif tipo == "impacto":
-                som("clique", c["ini_out"] - 0.1, 0.32, c.get("id"))
+                auto_som("palavra", c["ini_out"] - 0.08, 0.28, c.get("id"))
             elif tipo == "texto":
-                som("ding" if c.get("estilo") == "cta" else "clique", c["ini_out"] - (0 if c.get("estilo") == "cta" else 0.1),
-                    0.22 if c.get("estilo") == "cta" else 0.3, c.get("id"))
-            elif cartao:
-                som("whoosh", c["ini_out"] - 0.2, 0.35, c.get("id"))
+                cta = c.get("estilo") == "cta"
+                auto_som("cta" if cta else "texto", c["ini_out"] - (0 if cta else 0.08), 0.26, c.get("id"))
+            elif cartao and c.get("entrada") != "nenhuma":
+                auto_som("foto", c["ini_out"] - 0.12, 0.3, c.get("id"))
     if auto:
         for b in saida_blocos if leg.get("ativa", True) else []:
             if b.get("destaque"):
-                som("clique" if b.get("alt", 0) == 0 else "pop", b["ini_out"] - 0.1, 0.3)
+                auto_som("destaque", b["ini_out"] - 0.06, 0.24, alt=b.get("alt", 0))
 
     duracao_original = float(proj.get("info", {}).get("duracao", 0))
     return {

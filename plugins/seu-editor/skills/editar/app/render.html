@@ -26,7 +26,13 @@
     Motion.cena(tela, CTX, 0);
     return true;
   };
-  window.quadro = t => Motion.cena(document.getElementById("tela"), CTX, t);
+  window.quadro = async t => {
+    const tela = document.getElementById("tela");
+    const assinatura = Motion.cena(tela, CTX, t);
+    // espera foto nova carregar antes da foto do quadro (senão sai um quadro vazio)
+    await Promise.all([...tela.querySelectorAll("img")].map(i => (i.complete && i.naturalWidth) ? null : i.decode().catch(() => {})));
+    return assinatura;
+  };
 </script>
 </body>
 </html>

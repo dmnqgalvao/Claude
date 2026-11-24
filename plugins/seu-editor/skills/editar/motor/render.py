@@ -110,55 +110,69 @@ def montar_filtro(plano, proj, largura, altura, fps, com_audio, videos, idx_quad
     atras_seqs / recortes: [(entrada, ini, fim)] com as camadas de trás e a pessoa recortada."""
     segs = plano["segmentos"]
     info = proj.get("info", {})
-    sw, sh = int(info.get("largura", 1080)) // 2 * 2, int(info.get("altura", 1920)) // 2 * 2
+    arqs = proj.get("arquivos") or []
+    zs = _tem_zscale()
+    ajustar = proj.get("formato", {}).get("enquadramento") == "ajustar"
+    tonemap = ("zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,tonemap=tonemap=hable:desat=0,"
+               "zscale=t=bt709:m=bt709:r=tv,format=yuv420p,")
     partes, entradas = [], []
     for k, s in enumerate(segs):
-        dur = s["fim"] - s["ini"]
+        idx = int(s.get("arq", 0))
+        a = arqs[idx] if idx < len(arqs) else None
+        off = a["ini"] if a else 0.0
+        li, lf = s["ini"] - off, s["fim"] - off
+        dur = lf - li
         vel = float(s.get("vel", 1.0))
+        velo = f"setpts=PTS/{vel:.4f}," if abs(vel - 1) > 1e-3 else ""
         if base_idx is None:
-            z = float(s.get("zoom", 1.0))
-            zoom = (f",crop=w=iw/{z:.4f}:h=ih/{z:.4f}:x=(iw-iw/{z:.4f})/2:y=(ih-ih/{z:.4f})*0.42,scale={sw}:{sh}"
-                    if z > 1.001 else "")
-            velo = f",setpts=PTS/{vel:.4f}" if abs(vel - 1) > 1e-3 else ""
-            partes.append(f"[0:v]trim=start={s['ini']:.3f}:end={s['fim']:.3f},setpts=PTS-STARTPTS{zoom}{velo}[v{k}]")
+            if a and a["tipo"] == "audio":
+                # narração: a imagem vem toda das camadas por cima
+                partes.append(f"color=c=black:s={largura}x{altura}:r={fps}:d={dur / vel:.3f},format=yuv420p,setsar=1[v{k}]")
+            else:
+                inf = (a or {}).get("info") or info
+                sw, sh = float(inf.get("largura", 1080)), float(inf.get("altura", 1920))
+                z = float(s.get("zoom", 1.0))
+                # zoom do corte: depois do enquadramento, no centro com o rosto um pouco acima
+                zoom = (f",crop=w=iw/{z:.4f}:h=ih/{z:.4f}:x=(iw-iw/{z:.4f})/2:y=(ih-ih/{z:.4f})*0.42,"
+                        f"scale={largura}:{altura}" if z > 1.001 else "")
+                hdr = tonemap if inf.get("hdr") and zs else ""
+                q = P.quadro_de(a)
+                ini_cadeia = f"[{idx}:v]trim=start={li:.3f}:end={lf:.3f},setpts=PTS-STARTPTS,{hdr}"
+                if ajustar:
+                    esc = min(largura / sw, altura / sh) * q["zoom"]
+                    dw, dh = max(2, int(round(sw * esc / 2)) * 2), max(2, int(round(sh * esc / 2)) * 2)
+                    px, py = (largura - dw) * q["x"], (altura - dh) * q["y"]
+                    partes.append(
+                        f"{ini_cadeia}split[p{k}a][p{k}b];"
+                        f"[p{k}a]scale={largura}:{altura}:force_original_aspect_ratio=increase,crop={largura}:{altura},"
+                        f"boxblur=40:2,eq=brightness=-0.06[p{k}f];"
+                        f"[p{k}b]scale={dw}:{dh}[p{k}t];"
+                        f"[p{k}f][p{k}t]overlay={px:.1f}:{py:.1f}{zoom},{velo}fps={fps},format=yuv420p,setsar=1[v{k}]")
+                else:
+                    esc = max(largura / sw, altura / sh) * max(1.0, q["zoom"])
+                    dw, dh = max(largura, int(round(sw * esc / 2)) * 2), max(altura, int(round(sh * esc / 2)) * 2)
+                    cx, cy = int((dw - largura) * q["x"]), int((dh - altura) * q["y"])
+                    partes.append(f"{ini_cadeia}scale={dw}:{dh},crop={largura}:{altura}:{cx}:{cy}{zoom},"
+                                  f"{velo}fps={fps},format=yuv420p,setsar=1[v{k}]")
             entradas.append(f"[v{k}]")
         if com_audio:
             f = min(0.012, dur / 4)
             tempo = f",atempo={vel:.4f}" if abs(vel - 1) > 1e-3 else ""
-            partes.append(
-                f"[0:a]atrim=start={s['ini']:.3f}:end={s['fim']:.3f},asetpts=PTS-STARTPTS,"
-                f"afade=t=in:d={f:.3f},afade=t=out:st={max(0, dur - f):.3f}:d={f:.3f}{tempo}[a{k}]")
+            if a is None or a["info"].get("tem_audio", True):
+                partes.append(
+                    f"[{idx}:a]atrim=start={li:.3f}:end={lf:.3f},asetpts=PTS-STARTPTS,aresample=48000,"
+                    f"aformat=channel_layouts=stereo,"
+                    f"afade=t=in:d={f:.3f},afade=t=out:st={max(0, dur - f):.3f}:d={f:.3f}{tempo}[a{k}]")
+            else:
+                partes.append(f"anullsrc=r=48000:cl=stereo,atrim=duration={dur / vel:.3f}[a{k}]")
             entradas.append(f"[a{k}]")
     if base_idx is not None:
         if com_audio:
-            partes.append("".join(entradas) + f"concat=n={len(segs)}:v=0:a=1[ac]")
+            partes.append("".join(e for e in entradas if e.startswith("[a")) + f"concat=n={len(segs)}:v=0:a=1[ac]")
         partes.append(f"[{base_idx}:v]setpts=PTS-STARTPTS,fps={fps},format=yuv420p[b0]")
     else:
         partes.append("".join(entradas) + f"concat=n={len(segs)}:v=1:a={1 if com_audio else 0}"
-                      + ("[vc][ac]" if com_audio else "[vc]"))
-    if base_idx is None and _hdr(proj["video"]) and _tem_zscale():
-        partes.append("[vc]zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,tonemap=tonemap=hable:desat=0,"
-                      "zscale=t=bt709:m=bt709:r=tv,format=yuv420p[vsdr]")
-        trocar = True
-    else:
-        trocar = False
-    if base_idx is not None:
-        pass
-    elif proj.get("formato", {}).get("enquadramento") == "ajustar":
-        partes.append(
-            f"[vc]split[f1][f2];"
-            f"[f1]scale={largura}:{altura}:force_original_aspect_ratio=increase,crop={largura}:{altura},"
-            f"boxblur=40:2,eq=brightness=-0.06[fundo];"
-            f"[f2]scale={largura}:{altura}:force_original_aspect_ratio=decrease[frente];"
-            f"[fundo][frente]overlay=(W-w)/2:(H-h)/2,setsar=1,fps={fps}[vb]")
-    else:
-        partes.append(f"[vc]scale={largura}:{altura}:force_original_aspect_ratio=increase,"
-                      f"crop={largura}:{altura},setsar=1,fps={fps}[vb]")
-    if trocar:
-        for n in range(len(partes) - 1, -1, -1):
-            if partes[n].startswith("[vc]split") or partes[n].startswith("[vc]scale"):
-                partes[n] = "[vsdr]" + partes[n][4:]
-                break
+                      + ("[vb][ac]" if com_audio else "[vb]"))
     if base_idx is None:
         cor = plano.get("cor") or {}
         nitidez = f"unsharp=5:5:{cor['nitidez']:.2f}:5:5:0," if cor.get("nitidez") else ""
@@ -204,7 +218,7 @@ def montar_filtro(plano, proj, largura, altura, fps, com_audio, videos, idx_quad
         n, (idx, c) = passo[0], item
         ini, fim = c["ini_out"], c["fim_out"]
         dur = fim - ini
-        cadeia = f"[{idx}:v]trim=duration={dur:.3f},setpts=PTS-STARTPTS,fps={fps},"
+        cadeia = f"[{idx}:v]trim=duration={dur + 0.4:.3f},setpts=PTS-STARTPTS,fps={fps},"
         if c.get("modo") == "metade":
             alt = int(round(altura * 0.54 / 2)) * 2
             esf = int(altura * 0.08)
@@ -223,8 +237,9 @@ def montar_filtro(plano, proj, largura, altura, fps, com_audio, videos, idx_quad
         else:
             cadeia += f"scale={largura}:{altura}:force_original_aspect_ratio=increase,crop={largura}:{altura},format=rgba,"
             pos = "x=0:y=0"
-        cadeia += (f"fade=t=in:d=0.18:alpha=1,fade=t=out:st={max(0, dur - 0.2):.3f}:d=0.2:alpha=1,"
-                   f"setpts=PTS+{ini:.3f}/TB[ins{n}]")
+        fades = ("" if c.get("entrada") == "nenhuma" else
+                 f"fade=t=in:d=0.18:alpha=1,fade=t=out:st={max(0, dur - 0.2):.3f}:d=0.2:alpha=1,")
+        cadeia += f"{fades}setpts=PTS+{ini:.3f}/TB[ins{n}]"
         partes.append(cadeia)
         sobrepor(f"ins{n}", ini, fim, pos)
 
@@ -290,7 +305,11 @@ def exportar(pasta, previa=False, log=lambda *_: None):
     n_quadros = int(math.ceil(total * fps))
 
     videos = [c for c in plano.get("camadas", []) if c.get("tipo") == "video" and c.get("arquivo")]
-    com_audio = _tem_audio(proj["video"])
+    arqs = proj.get("arquivos") or []
+    com_audio = any(a["info"].get("tem_audio", True) for a in arqs) if arqs else _tem_audio(proj["video"])
+    entradas_arquivos = []
+    for a in arqs or [{"arquivo": proj["video"]}]:
+        entradas_arquivos += ["-i", a["arquivo"]]
     rotulo = "gerando a prévia" if previa else "exportando o vídeo final"
     P.escrever_estado(pasta, tarefa="exportando", progresso=0.0, mensagem=f"{rotulo}: preparando", erro=None)
     opc_filtro = (lambda arq: ["-/filter_complex", arq]) if _versao_ffmpeg() >= 7 else (lambda arq: ["-filter_complex_script", arq])
@@ -310,7 +329,7 @@ def exportar(pasta, previa=False, log=lambda *_: None):
         P.escrever_estado(pasta, mensagem=f"{rotulo}: montando a base pra recortar a pessoa")
         with open(os.path.join(tmp, "base.txt"), "w", encoding="utf-8") as f:
             f.write(montar_filtro(plano, proj, largura, altura, fps, False, [], 0, so_base=True))
-        r = subprocess.run(["ffmpeg", "-y", "-v", "error", "-i", proj["video"], *opc_filtro("_render/base.txt"),
+        r = subprocess.run(["ffmpeg", "-y", "-v", "error", *entradas_arquivos, *opc_filtro("_render/base.txt"),
                             "-map", "[b0]", "-c:v", "libx264", "-preset", "veryfast", "-crf", "12", "-r", str(fps),
                             "_render/base.mp4"], cwd=pasta, capture_output=True, text=True)
         if r.returncode != 0:
@@ -321,8 +340,8 @@ def exportar(pasta, previa=False, log=lambda *_: None):
             R.recortar(os.path.join(tmp, "base.mp4"), a_, b_ - a_, largura, altura, fps, saida_rc)
             arq_recortes.append((saida_rc, a_, b_))
 
-    entradas = ["-i", proj["video"]]
-    proximo = 1
+    entradas = list(entradas_arquivos)
+    proximo = len(entradas_arquivos) // 2
     base_idx = None
     if faixas:
         entradas += ["-i", os.path.join(tmp, "base.mp4")]
@@ -349,10 +368,9 @@ def exportar(pasta, previa=False, log=lambda *_: None):
         proximo += 1
     lista_sons = []
     for ev in plano.get("sons", []):
-        arq = os.path.join(PASTA_SONS, f"{ev['som']}.wav")
-        if not os.path.exists(arq):
-            arq = os.path.join(pasta, "insertos", ev["som"])
-        if os.path.exists(arq) and ev["ini_out"] < total:
+        from .estilos import arquivo_do_som
+        arq = arquivo_do_som(ev["som"], P.dados_dir(), pasta)
+        if arq and ev["ini_out"] < total:
             entradas += ["-i", arq]
             lista_sons.append((proximo, ev))
             proximo += 1

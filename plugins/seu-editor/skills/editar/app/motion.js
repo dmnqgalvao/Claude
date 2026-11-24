@@ -223,7 +223,7 @@
         criar() { const el = document.createElement("div"); el.className = "m-metade"; el.innerHTML = `<img src="${src}" alt="">`; caixaMetade(el, c); return el; },
         atualizar(el, t) {
           const prog = c01((t - c.ini_out) / Math.max(.1, c.fim_out - c.ini_out));
-          el.style.opacity = envelope(c, t, c.entrada === "fadelento" ? "fadelento" : "nenhuma").op;
+          el.style.opacity = c.entrada === "nenhuma" ? (c.opacidade ?? 1) : envelope(c, t, c.entrada === "fadelento" ? "fadelento" : "nenhuma").op;
           el.firstChild.style.transform = c.movimento === "parado" ? "" : `scale(${r3(1 + .06 * prog)})`;
           return "";
         },
@@ -241,7 +241,7 @@
         atualizar(el, t) {
           const env = envelope(c, t, c.entrada === "fadelento" ? "fadelento" : "fade");
           const prog = c01((t - c.ini_out) / Math.max(.1, c.fim_out - c.ini_out));
-          el.style.opacity = env.op;
+          el.style.opacity = c.entrada === "nenhuma" ? (c.opacidade ?? 1) : env.op;
           el.firstChild.style.transform = `scale(${r3(1 + .08 * prog)})`;
           return "";
         },
@@ -302,7 +302,8 @@
           if (!v.paused) v.pause();
           if (Math.abs(v.currentTime - alvo) > .04) v.currentTime = alvo;
         }
-        if (metade) { el.style.opacity = envelope(c, t, "nenhuma").op; }
+        if (c.entrada === "nenhuma" && (tela || metade)) { el.style.opacity = 1; }
+        else if (metade) { el.style.opacity = envelope(c, t, "nenhuma").op; }
         else if (tela) { el.style.opacity = envelope(c, t, "fade").op; }
         else { el.style.width = ((c.tamanho || .34) * W) + "px"; posicionar(el, c, envelope(c, t, "fade")); }
         return "";

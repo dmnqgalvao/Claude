@@ -77,6 +77,25 @@ ed servir "$PRJ"                             # rode EM SEGUNDO PLANO, abre o nav
 ed transcrever "$PRJ"                        # 1a vez baixa o modelo (~1,5 GB)
 ```
 
+**Vários arquivos no mesmo projeto.** Takes, clipes de vlog e narração entram juntos numa
+linha do tempo só, na ordem em que você passar:
+```bash
+ed novo take1.mov take2.mov take3.mov --nome "dica 03"        # takes ou clipes de vlog
+ed novo ~/Downloads/vlog-lisboa --nome lisboa --ordem data     # pasta: todos, pela data
+ed novo "<link da pasta do Drive>" --todos --nome lisboa       # pasta do Drive inteira
+ed novo fotos/*.jpg broll.mp4 --narracao fala.m4a --nome praia # narração: insertos + áudio
+```
+- `--ordem nome` ou `--ordem data` quando a pessoa não disse a ordem. Pasta vem pela data.
+- Depois de transcrever, os vídeos sem fala viram trechos de imagem (ficam 2,5 s do meio).
+  Veja com `ed arquivos "$PRJ"` e troque com
+  `ed arquivo-modo "$PRJ" 2 imagem --manter 3.0 4` (começa em 3 s e fica 4 s) ou
+  `ed arquivo-modo "$PRJ" 2 fala`.
+- Em takes repetidos, o `texto` mostra cada arquivo separado. Fique com a melhor versão
+  de cada frase (normalmente a última) e corte as outras.
+- Narração: a voz vem do áudio e a imagem vem toda dos insertos. Monte com
+  `ed preencher "$PRJ" --cada 2` (um inserto a cada 2 s, sem buraco preto, encaixando no
+  começo das frases). Use `--modo metade`, `--de 10 --ate 30` pra um trecho só.
+
 O servidor imprime o endereço (normalmente http://127.0.0.1:4848). Passe pra pessoa se o
 navegador não abrir. Em computador fraco, use `transcrever "$PRJ" --modelo small`.
 
@@ -166,11 +185,22 @@ uma tremida ou flash numa virada, e som junto com as entradas importantes.
 # zoom rápido (estilo "suave" ou "seco"), tremida ou flash
 ed camada "$PRJ" '{"tipo":"efeito","efeito":"zoom","palavra":42,"duracao":1.2,"intensidade":1.2,"x":0.5,"y":0.4}'
 ed camada "$PRJ" '{"tipo":"efeito","efeito":"flash","palavra":60,"duracao":0.35}'
-# efeito sonoro sozinho: whoosh, pop, ding, clique, impacto, subida
-ed camada "$PRJ" '{"tipo":"som","som":"whoosh","palavra":60,"volume":0.8}'
+# efeito sonoro sozinho: pop, clique, camera, whoosh, ding, impacto, subida
+# (e os sons que a pessoa enviou; `ed sons --listar` mostra todos)
+ed camada "$PRJ" '{"tipo":"som","som":"camera","palavra":60,"volume":0.5}'
 # ou som na entrada de qualquer camada
 ed camada "$PRJ" '{"id":"imp4k2xz","som":"pop"}'
 ```
+Sons automáticos: cada momento tem o seu som e dá pra trocar qualquer um.
+```bash
+# padrão: destaque alterna pop e clique, palavra-chave e cascata = pop,
+# texto na tela = clique, foto ou vídeo que entra = camera, CTA = pop
+ed sons "$PRJ" --foto camera --destaque pop,clique --palavra clique --volume 0.8
+ed sons "$PRJ" --texto nenhum      # tira o som de um momento
+ed sons "$PRJ" --desligar          # desliga os sons automáticos
+```
+A pessoa também envia os próprios sons pela interface (aba estilo, card da trilha,
+"+ enviar meu som"). Eles ficam em `~/.seu-editor/sons/` e valem pra todos os vídeos.
 Trilha de fundo: a música fica em `insertos/` e abaixa sozinha quando a pessoa fala.
 `ed trilha "$PRJ" musica.mp3 --volume 0.14` (`--sem-abaixar` desliga o abaixamento).
 
@@ -260,7 +290,7 @@ citou). Não escolha fonte por conta própria.
 **Cascata (sem legenda corrida).** No gancho e em 4 a 7 momentos-chave, as palavras
 entram uma a uma empilhadas e saem juntas, grandes, na fonte de destaque do estilo:
 `{"tipo":"cascata","linhas":[{"texto":"orçamento","palavra":3},{"texto":"de fachada","palavra":5}],"y":0.3,"variar":true}`.
-Cada linha ganha um clique 0,1 s antes, sozinho.
+Cada linha ganha um pop baixinho logo antes, sozinho.
 
 **Gancho.** O título-gancho (caixa sólida no terço de cima, 5 a 6 s) repete a
 primeira frase falada, que é o gancho. Ou reforce o gancho com um inserto de prova em meia
@@ -276,9 +306,11 @@ tela nos primeiros segundos. O gancho tem que aparecer na imagem nos primeiros 2
 - Vídeos documentário (história, atleta, lugar) têm de 30 a 40 insertos por minuto. Fala
   com prova, de 12 a 15. Fala pura, de 0 a 5.
 
-**Som.** Os sons automáticos acompanham o texto, nunca o corte: clique 0,1 s antes de
-cada palavra-chave, pop no destaque que alterna, whoosh 0,2 s antes da foto que entra
-voando e ding no CTA. Volume baixo. Não coloque música no vídeo, a não ser que a pessoa
+**Som.** Os sons automáticos acompanham o texto, nunca o corte, sempre macios e baixinhos
+por baixo da voz: pop e clique alternando nos destaques, pop na palavra-chave e na
+cascata, clique no texto na tela, câmera quando entra foto ou vídeo e pop no CTA. A
+pessoa não gosta de som escrachado: não use whoosh, ding, impacto nem subida a não ser
+que ela peça. Não coloque música no vídeo, a não ser que a pessoa
 peça (ela entra depois, no Instagram).
 
 **Cor.** Estilo `quente-suave` com nitidez leve (já é o padrão); troque pelo estilo que
@@ -291,7 +323,7 @@ branco por 1 a 7 s: `{"tipo":"efeito","efeito":"pb","palavra":N,"duracao":3}`.
   um dado com contraste
 - desenvolvimento em lista de 3 ("primeiro / segundo / terceiro", com os números em
   destaque) ou em ordem cronológica, com uma frase de virada antes do fim
-- CTA nos últimos ~6 s, com a palavra-chave em destaque e o ding
+- CTA nos últimos ~6 s, com a palavra-chave em destaque e um pop
 Se o gancho não estiver no começo da gravação, mas existir mais pra frente, avise a pessoa
 e sugira começar o vídeo nele.
 
@@ -306,7 +338,7 @@ e sugira começar o vídeo nele.
 - *Opinião ou relato pessoal*: cascata no gancho e nas viradas, escada de zoom na frase
   mais forte, preto e branco na confissão.
 - *Serviço ou empresa*: palavras-chave em pares (cascata curta), título-gancho em caixa,
-  ding no CTA.
+  pop no CTA.
 
 Depois de montar, gere a prévia (`ed exportar "$PRJ" --previa`), olhe 3 ou 4 quadros e
 corrija o que ficou poluído, ilegível ou fora do lugar antes de mostrar pra pessoa.
@@ -351,11 +383,26 @@ Outros ajustes: `ed ajustar "$PRJ" --ritmo seco` (`seco`, `calmo`, `natural`, `a
 `--posicao 0.64` (altura da legenda), `--enquadramento ajustar` (vídeo horizontal inteiro
 com fundo desfocado), `--sem-legenda`.
 
+**Enquadramento.** Quando a pessoa ficou cortada, fora do centro ou longe demais, ajuste
+o quadro do arquivo em vez de refazer a edição. `zoom` 1 é o vídeo cabendo certinho na
+tela; `x` e `y` escolhem qual parte aparece (0 = esquerda/topo, 0,5 = centro, 1 =
+direita/baixo). Cada arquivo guarda o seu.
+```bash
+ed enquadrar "$PRJ" --zoom 1.25 --x 0.7          # arquivo 1, aproxima e puxa pra direita
+ed enquadrar "$PRJ" --arquivo 2 --y 0.3          # mostra mais a parte de cima
+ed enquadrar "$PRJ" --arquivo todos --centro     # volta tudo ao centro
+```
+Na interface: aba estilo, card enquadramento, "mexer no enquadramento". Aí ela arrasta
+o vídeo dentro do celular e usa a rodinha ou o controle de zoom.
+
 ## 5. Pedidos no chat
 
 "Tira a parte do preço", "coloca uma foto quando eu falo do produto", "deixa a legenda
 maior": leia `texto` e `camadas` de novo (ela pode ter mudado coisas na interface), encontre
 o trecho e use `cortar`, `manter`, `destacar`, `camada`, `legenda`, `estilo` ou `ajustar`.
+"Troca o som das fotos por clique", "tira os sons": `sons`. "Eu fiquei cortada",
+"centraliza", "aproxima mais": `enquadrar` (pergunte o arquivo só se houver vários e não
+der pra saber pelo contexto).
 
 ## 6. Exportar
 

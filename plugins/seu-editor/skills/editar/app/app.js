@@ -184,6 +184,8 @@ function laco() {
     if (Math.abs(fundo.currentTime - video.currentTime) > 0.2) fundo.currentTime = video.currentTime;
     if (video.paused !== fundo.paused) video.paused ? fundo.pause() : fundo.play().catch(() => {});
   }
+  aplicarEnquadramento();
+  if (S.enquadrando) { const a = arquivoNoTempo(video.currentTime); if (a && a.id !== S.quadroArq) { S.quadroArq = a.id; desenharEnquadramento(); } }
   desenharQuadro();
   efeitosPrevia();
   requestAnimationFrame(laco);
@@ -407,8 +409,54 @@ function desenharExtras() {
   gd.appendChild(campoChave("tudo em minúsculas", lv.minusculas, v => { lv.minusculas = v; mudou({ controles: false }); }));
   d.appendChild(gd);
 
-  const sa = $("#sons-auto"); sa.innerHTML = "";
-  sa.appendChild(campoChave("sons automáticos: clique antes de cada palavra-chave, whoosh nas fotos que entram, ding no botão de chamada", aj.sons_auto, v => { aj.sons_auto = v; mudou({ controles: false }); }));
+  desenharSons();
+}
+
+function desenharSons() {
+  const sa = $("#sons-auto"); if (!sa || !S.proj) return;
+  const aj = S.proj.ajustes;
+  sa.innerHTML = "";
+  sa.appendChild(campoChave("sons automáticos nos destaques, palavras-chave e fotos que entram", aj.sons_auto, v => { aj.sons_auto = v; desenharSons(); mudou({ controles: false }); }));
+  if (!aj.sons_auto) return;
+  const padrao = S.estilos.sons_mapa || {};
+  const mapa = aj.sons_mapa = { ...padrao, ...(aj.sons_mapa || {}) };
+  const nomes = Object.keys(S.estilos.sons);
+  const opcoes = v => `<option value="nenhum" ${v === "nenhum" ? "selected" : ""}>sem som</option>` +
+    nomes.map(n => `<option ${n === v ? "selected" : ""}>${esc(n)}</option>`).join("");
+  const grade = document.createElement("div"); grade.className = "vis"; grade.style.marginTop = "10px";
+  for (const [momento, rotulo] of S.estilos.sons_momentos || []) {
+    const valor = mapa[momento];
+    const lista = Array.isArray(valor) ? valor : [valor];
+    const l = document.createElement("div"); l.className = "campo largo";
+    l.innerHTML = `<span>${esc(rotulo)}${Array.isArray(valor) ? " <small class=\"mini\">(alterna entre os dois)</small>" : ""}</span>`;
+    const fila = document.createElement("div"); fila.style.cssText = "display:flex;gap:6px;align-items:center";
+    lista.forEach((v, i) => {
+      const sel = document.createElement("select"); sel.innerHTML = opcoes(v || "nenhum");
+      sel.onchange = e => {
+        const novo = e.target.value;
+        if (Array.isArray(mapa[momento])) { mapa[momento] = [...mapa[momento]]; mapa[momento][i] = novo; } else mapa[momento] = novo;
+        tocarSom(novo, .6); mudou({ controles: false });
+      };
+      const ouvir = document.createElement("button"); ouvir.type = "button"; ouvir.className = "btn borda pequeno"; ouvir.textContent = "ouvir";
+      ouvir.onclick = () => tocarSom(sel.value, .6);
+      fila.appendChild(sel); fila.appendChild(ouvir);
+    });
+    l.appendChild(fila); grade.appendChild(l);
+  }
+  grade.appendChild(campoFaixa("volume dos sons", .2, 2, .05, mapa.volume ?? 1, x => Math.round(x * 100) + "%", v => { mapa.volume = v; mudou({ controles: false }); }, true));
+  const envio = document.createElement("label"); envio.className = "btn borda pequeno"; envio.style.marginTop = "6px";
+  envio.innerHTML = `+ enviar meu som <input type="file" accept=".wav,.mp3,.m4a,.aac,.ogg,audio/*" hidden>`;
+  envio.querySelector("input").onchange = async e => {
+    const arq = e.target.files[0]; if (!arq) return;
+    const r = await api("POST", `/api/sons?nome=${encodeURIComponent(arq.name)}`, arq, true);
+    e.target.value = "";
+    if (!r.ok) { aviso(r.dados.erro || "não consegui guardar o som"); return; }
+    S.estilos = (await api("GET", "/api/estilos")).dados;
+    desenharSons(); tocarSom(r.dados.id, .7);
+    aviso(`som "${r.dados.id}" guardado. ele aparece nas opções de todos os vídeos`);
+  };
+  grade.appendChild(envio);
+  sa.appendChild(grade);
 }
 
 function desenharVisuais() {
@@ -452,6 +500,7 @@ function desenharControles() {
   $("#l-pont").checked = l.sem_pontuacao !== false;
 
   $$("#enquadramento .pilula").forEach(b => b.classList.toggle("ativa", b.dataset.enq === pj.formato.enquadramento));
+  desenharEnquadramento();
   $("#celular").classList.toggle("ajustar", pj.formato.enquadramento === "ajustar");
   $("#f-volume").checked = pj.formato.volume !== false;
 
@@ -1072,7 +1121,8 @@ function desenharTrilhaFundo() {
 }
 const cacheSons = {};
 function tocarSom(nome, volume = .8) {
-  const src = S.estilos.sons[nome] ? `/sons/${nome}.wav` : `/insertos/${encodeURIComponent(nome)}`;
+  if (!nome || nome === "nenhum") return;
+  const src = S.estilos.sons[nome] || `/insertos/${encodeURIComponent(nome)}`;
   const base = cacheSons[src] ||= new Audio(src);
   const a = base.cloneNode(); a.volume = Math.min(1, volume); a.play().catch(() => {});
 }
@@ -1105,6 +1155,128 @@ function efeitosPrevia() {
   } else if (!ta.paused) ta.pause();
   if (S.aba === "cortes" && !video.paused) desenharOnda();
 }
+
+/* ============================================================ enquadramento
+   Cada arquivo tem o seu: zoom (1 = cabe certinho) e qual parte aparece (x e y, 0,5 = centro).
+   A conta é a mesma da exportação (render.py). Na prévia, o vídeo é posicionado por estilo. */
+function arquivoNoTempo(t) {
+  const arqs = S.proj?.arquivos || [];
+  return arqs.find(a => t >= a.ini && t < a.fim) || arqs[arqs.length - 1] || null;
+}
+function quadroDe(a) {
+  const q = { zoom: 1, x: .5, y: .5, ...(a?.quadro || {}) };
+  return { zoom: Math.max(.5, Math.min(4, +q.zoom)), x: Math.max(0, Math.min(1, +q.x)), y: Math.max(0, Math.min(1, +q.y)) };
+}
+function retanguloArquivo(a, ajustar, capa) {
+  const W = +a?.info?.largura || 1080, H = +a?.info?.altura || 1920;
+  const q = capa ? { zoom: 1, x: .5, y: .5 } : quadroDe(a);
+  const z = ajustar && !capa ? q.zoom : Math.max(1, q.zoom);
+  const base = ajustar && !capa ? Math.min(1080 / W, 1920 / H) : Math.max(1080 / W, 1920 / H);
+  const dw = W * base * z, dh = H * base * z;
+  return { x: (1080 - dw) * q.x / 1080, y: (1920 - dh) * q.y / 1920, w: dw / 1080, h: dh / 1920 };
+}
+function caixaNaMidia(a) {
+  const c = S.proj?.proxy && S.proj?.proxy_caixas && a ? S.proj.proxy_caixas[a.id] : null;
+  return c ? { x: c[0], y: c[1], w: c[2], h: c[3] } : { x: 0, y: 0, w: 1, h: 1 };
+}
+function caixaDoElemento(a, ajustar, capa) {
+  const r = retanguloArquivo(a, ajustar, capa), c = caixaNaMidia(a);
+  const w = r.w / c.w, h = r.h / c.h;
+  return { x: r.x - c.x * w, y: r.y - c.y * h, w, h };
+}
+function posicionar(el, cx) {
+  const chave = `${cx.x.toFixed(4)},${cx.y.toFixed(4)},${cx.w.toFixed(4)},${cx.h.toFixed(4)}`;
+  if (el._quadro === chave) return;
+  el._quadro = chave;
+  Object.assign(el.style, { objectFit: "fill", left: cx.x * 100 + "%", top: cx.y * 100 + "%",
+    width: cx.w * 100 + "%", height: cx.h * 100 + "%", right: "auto", bottom: "auto" });
+}
+let caixaVideo = { x: 0, y: 0, w: 1, h: 1 };
+function aplicarEnquadramento() {
+  if (!S.proj) return;
+  const a = arquivoNoTempo(video.currentTime);
+  const ajustar = S.proj.formato.enquadramento === "ajustar";
+  caixaVideo = caixaDoElemento(a, ajustar, false);
+  posicionar(video, caixaVideo);
+  posicionar(fundo, caixaDoElemento(a, false, true));
+  for (const v of $("#tela-recorte").querySelectorAll("video")) posicionar(v, caixaVideo);
+  const marca = $("#quadro-arquivo");
+  if (marca && S.enquadrando) marca.textContent = (S.proj.arquivos || []).length > 1 ? `ajustando: ${a?.nome || ""}` : "";
+}
+
+function desenharEnquadramento() {
+  const alvo = $("#quadro-ajuste"); if (!alvo || !S.proj) return;
+  const a = arquivoNoTempo(video.currentTime);
+  const ajustar = S.proj.formato.enquadramento === "ajustar";
+  const q = quadroDe(a), varios = (S.proj.arquivos || []).length > 1;
+  alvo.innerHTML = "";
+  const topo = document.createElement("div"); topo.className = "linha-opcoes largo";
+  const b = document.createElement("button"); b.type = "button";
+  b.className = "btn pequeno " + (S.enquadrando ? "escuro" : "borda");
+  b.textContent = S.enquadrando ? "pronto, terminei de enquadrar" : "mexer no enquadramento";
+  b.onclick = () => { S.enquadrando = !S.enquadrando; $("#celular").classList.toggle("enquadrando", S.enquadrando); desenharEnquadramento(); };
+  topo.appendChild(b);
+  alvo.appendChild(topo);
+  if (!S.enquadrando) {
+    const p = document.createElement("p"); p.className = "mini";
+    p.textContent = "arraste o vídeo na tela pra mudar o que aparece e use o zoom pra aproximar ou afastar" + (varios ? ". cada arquivo guarda o seu" : "");
+    alvo.appendChild(p); return;
+  }
+  const grade = document.createElement("div"); grade.className = "vis";
+  if (varios) { const n = document.createElement("p"); n.className = "mini largo"; n.id = "quadro-arquivo"; n.textContent = `ajustando: ${a?.nome || ""}`; grade.appendChild(n); }
+  const min = ajustar ? .5 : 1;
+  grade.appendChild(campoFaixa("zoom", min, 3, .01, Math.max(min, q.zoom), x => x.toFixed(2).replace(".", ",") + "×", v => mexerQuadro({ zoom: v }), true));
+  grade.appendChild(campoFaixa("esquerda ↔ direita", 0, 1, .01, q.x, x => Math.round(x * 100) + "%", v => mexerQuadro({ x: v })));
+  grade.appendChild(campoFaixa("cima ↕ baixo", 0, 1, .01, q.y, x => Math.round(x * 100) + "%", v => mexerQuadro({ y: v })));
+  const acoes = document.createElement("div"); acoes.className = "linha-opcoes largo"; acoes.style.gap = "8px";
+  const centro = document.createElement("button"); centro.type = "button"; centro.className = "btn borda pequeno"; centro.textContent = "voltar ao centro";
+  centro.onclick = () => { mexerQuadro({ zoom: 1, x: .5, y: .5 }); desenharEnquadramento(); };
+  acoes.appendChild(centro);
+  if (varios) {
+    const todos = document.createElement("button"); todos.type = "button"; todos.className = "btn borda pequeno"; todos.textContent = "usar em todos os arquivos";
+    todos.onclick = () => { const q2 = quadroDe(arquivoNoTempo(video.currentTime)); for (const x of S.proj.arquivos) x.quadro = { ...q2 }; mudou({ controles: false }); aviso("enquadramento aplicado em todos os arquivos"); };
+    acoes.appendChild(todos);
+  }
+  grade.appendChild(acoes);
+  alvo.appendChild(grade);
+}
+function mexerQuadro(mud) {
+  const a = arquivoNoTempo(video.currentTime); if (!a) return;
+  const q = quadroDe(a);
+  a.quadro = { ...q, ...mud };
+  for (const k of ["zoom", "x", "y"]) a.quadro[k] = Math.round(a.quadro[k] * 1000) / 1000;
+  aplicarEnquadramento();
+  mudou({ controles: false });
+}
+(function arrastarQuadro() {
+  const cel = $("#celular"), sup = $("#arrasto-quadro"); if (!sup) return;
+  let ini = null;
+  sup.addEventListener("pointerdown", e => {
+    const a = arquivoNoTempo(video.currentTime); if (!a) return;
+    ini = { px: e.clientX, py: e.clientY, q: quadroDe(a), a, r: sup.getBoundingClientRect() };
+    sup.setPointerCapture(e.pointerId); e.preventDefault();
+  });
+  sup.addEventListener("pointermove", e => {
+    if (!ini) return;
+    const ajustar = S.proj.formato.enquadramento === "ajustar";
+    const r = retanguloArquivo({ ...ini.a, quadro: ini.q }, ajustar, false);
+    const dx = (e.clientX - ini.px) / ini.r.width, dy = (e.clientY - ini.py) / ini.r.height;
+    const fx = Math.abs(1 - r.w) > .001 ? dx / (1 - r.w) : 0, fy = Math.abs(1 - r.h) > .001 ? dy / (1 - r.h) : 0;
+    ini.a.quadro = { ...ini.q, x: Math.max(0, Math.min(1, ini.q.x + fx)), y: Math.max(0, Math.min(1, ini.q.y + fy)) };
+    aplicarEnquadramento();
+  });
+  const fim = () => { if (!ini) return; ini = null; mexerQuadro({}); desenharEnquadramento(); };
+  sup.addEventListener("pointerup", fim); sup.addEventListener("pointercancel", fim);
+  sup.addEventListener("wheel", e => {
+    e.preventDefault();
+    const a = arquivoNoTempo(video.currentTime); if (!a) return;
+    const min = S.proj.formato.enquadramento === "ajustar" ? .5 : 1;
+    const q = quadroDe(a);
+    mexerQuadro({ zoom: Math.max(min, Math.min(3, q.zoom * (e.deltaY < 0 ? 1.04 : 1 / 1.04))) });
+    clearTimeout(sup._t); sup._t = setTimeout(desenharEnquadramento, 250);
+  }, { passive: false });
+  void cel;
+})();
 
 /* ============================================================ pessoa recortada na prévia */
 let RECORTES = { chave: null, itens: [] }, pedindoRecorte = false, chaveFaixas = "";
@@ -1247,11 +1419,9 @@ function desenharLutPrevia() {
   const gl = GL.gl, dpr = Math.min(2, devicePixelRatio || 1);
   const cw = Math.round(cv.clientWidth * dpr), ch = Math.round(cv.clientHeight * dpr);
   if (cv.width !== cw || cv.height !== ch) { cv.width = cw; cv.height = ch; }
-  const vw = video.videoWidth, vh = video.videoHeight; if (!vw) return;
-  const ajustar = S.proj.formato.enquadramento === "ajustar";
-  const s = ajustar ? Math.min(cw / vw, ch / vh) : Math.max(cw / vw, ch / vh);
-  const dw = vw * s / cw, dh = vh * s / ch;
-  const q = new Float32Array([-dw, -dh, 0, 1, dw, -dh, 1, 1, -dw, dh, 0, 0, dw, dh, 1, 0]);
+  const vw = video.videoWidth; if (!vw) return;
+  const cx = caixaVideo, x0 = cx.x * 2 - 1, x1 = (cx.x + cx.w) * 2 - 1, y0 = 1 - cx.y * 2, y1 = 1 - (cx.y + cx.h) * 2;
+  const q = new Float32Array([x0, y1, 0, 1, x1, y1, 1, 1, x0, y0, 0, 0, x1, y0, 1, 0]);
   gl.viewport(0, 0, cw, ch); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
   gl.bindBuffer(gl.ARRAY_BUFFER, GL.buf); gl.bufferData(gl.ARRAY_BUFFER, q, gl.DYNAMIC_DRAW);
   const ap = gl.getAttribLocation(GL.pr, "p"), at = gl.getAttribLocation(GL.pr, "t");
