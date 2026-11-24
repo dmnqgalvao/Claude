@@ -1,7 +1,7 @@
 {
   "name": "seu-editor",
   "displayName": "Seu Editor",
-  "version": "0.11.0",
+  "version": "0.11.1",
   "description": "Editor de vídeo falado em português com interface no navegador: corta pausas e regravações, legenda animada, gancho, palavras de impacto, fotos e vídeos inseridos, desenhos e textos.",
   "author": { "name": "Domi Galvão", "url": "https://domigalvao.com" },
   "homepage": "https://domigalvao.com",
