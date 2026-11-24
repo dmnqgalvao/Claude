@@ -75,6 +75,10 @@ def normalizar(proj):
     proj.setdefault("fontes", {"kit": E.KIT_PADRAO["id"], "destaque": E.KIT_PADRAO["destaque"],
                                "texto": E.KIT_PADRAO["texto"]})
     proj.setdefault("camadas", [])
+    proj.setdefault("cortes_tempo", [])
+    proj.setdefault("cor", {"auto": False, "ganhos": [1.0, 1.0, 1.0], "filtro": "nenhum", "brilho": 0.0,
+                            "contraste": 1.0, "saturacao": 1.0, "temperatura": 0.0})
+    proj.setdefault("trilha", {"arquivo": None, "volume": 0.14, "abaixar_na_fala": True})
     proj.setdefault("sugestoes", {"ganchos": []})
     proj.setdefault("formato", {"enquadramento": "preencher", "volume": True})
     proj["versao"] = 2

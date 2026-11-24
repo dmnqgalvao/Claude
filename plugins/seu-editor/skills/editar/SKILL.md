@@ -105,6 +105,29 @@ ed camada "$PRJ" '{"tipo":"desenho","forma":"circulo","cor":"#E8352E","palavra":
 ed camada "$PRJ" '{"tipo":"texto","estilo":"cta","texto":"comenta EU QUERO","ini":0,"ate_o_fim":true,"y":0.82}'
 ```
 
+**Ganchos visuais e sonoros.** Use poucos e nos pontos certos: um zoom na frase mais forte,
+uma tremida ou flash numa virada, e som junto com as entradas importantes.
+```bash
+# zoom rápido (estilo "suave" ou "seco"), tremida ou flash
+ed camada "$PRJ" '{"tipo":"efeito","efeito":"zoom","palavra":42,"duracao":1.2,"intensidade":1.2,"x":0.5,"y":0.4}'
+ed camada "$PRJ" '{"tipo":"efeito","efeito":"flash","palavra":60,"duracao":0.35}'
+# efeito sonoro sozinho: whoosh, pop, ding, clique, impacto, subida
+ed camada "$PRJ" '{"tipo":"som","som":"whoosh","palavra":60,"volume":0.8}'
+# ou som na entrada de qualquer camada
+ed camada "$PRJ" '{"id":"imp4k2xz","som":"pop"}'
+```
+Trilha de fundo: a música fica em `insertos/` e abaixa sozinha quando a pessoa fala.
+`ed trilha "$PRJ" musica.mp3 --volume 0.14` (`--sem-abaixar` desliga o abaixamento).
+
+**Cor.** `ed cor "$PRJ" --auto` acerta luz e balanço de branco olhando o vídeo. Filtros:
+`--filtro quente|frio|vivo|suave|filme|pb`, e ajustes finos com `--brilho 0.03`,
+`--contraste 1.1`, `--saturacao 1.2`, `--temperatura 0.3` (-1 a 1). Rode o `--auto` em
+todo vídeo gravado com luz de casa, que costuma sair amarelado ou escuro.
+
+**Corte por tempo.** Pra tirar um trecho que não tem fala (barulho, cena parada),
+`ed cortar-tempo "$PRJ" 12.5 14.2` (segundos do vídeo original). A pessoa também corta
+arrastando na onda do áudio, na aba cortes, e tem botão de desfazer.
+
 `"ligar": true` na palavra de impacto desenha linhas dela até as fotos em cartão que estão na
 tela ao mesmo tempo (o efeito de mapa mental). Pra mudar uma camada, mande o `id` com os
 campos novos: `ed camada "$PRJ" '{"id":"imp4k2xz","y":0.3}'`. Pra listar: `ed camadas "$PRJ"`.
@@ -121,12 +144,12 @@ na linha do tempo, trocar fontes, cores e contorno.
 ## 4. Estilo, fontes e cores
 
 Cada estilo é uma dupla de fontes: **destaque** (gancho, títulos, palavras de impacto) e
-**texto** (legenda, frases, botões). Estilos prontos: `classico` (Times New Roman +
-Helvetica), `descolado` (Chalkduster + Helvetica Bold), `romantico` (Burgues Script +
-Futura), `normal` (Bricolage Grotesque + Space Mono).
+**texto** (legenda, frases, botões). Estilos prontos: `cool` (Bootzy TM + Helvetica),
+`star` (Open Sauce Bold + Courier New Bold), `basic` (condensada Oswald + Futura) e `glow`
+(Helvetica Bold + Instrument Serif).
 
 ```bash
-ed estilo "$PRJ" romantico
+ed estilo "$PRJ" glow
 ed estilo "$PRJ" --destaque bodoni --texto opensans   # dupla personalizada
 ed fontes                                             # ids de todas as fontes
 ```
@@ -138,8 +161,9 @@ ed fonte "Playfair Display"
 ed fonte ~/Downloads/MinhaFonte.otf --nome "Minha Fonte"
 ```
 O comando imprime o id (ex.: `p-playfair-display`), que serve em `estilo --destaque`,
-`estilo --texto` ou no `"fonte"` de um visual. Fontes pagas (como a Burgues Script) só
-funcionam se a pessoa tiver o arquivo. Sem ele, entra uma fonte gratuita parecida.
+`estilo --texto` ou no `"fonte"` de um visual. Fontes pagas (como a Bootzy TM) só
+funcionam se a pessoa tiver o arquivo. Sem ele, entra uma fonte gratuita parecida
+(a Bootzy TM, que é paga, vira Inter Tight).
 
 Visual da legenda (JSON parcial, só o que mudar):
 ```bash

@@ -44,7 +44,9 @@
     </div>
 
     <div class="controles">
+      <button class="btn redondo claro" id="btn-desfazer" title="desfazer (⌘Z)" aria-label="desfazer" disabled>↶</button>
       <button class="btn redondo" id="btn-play" aria-label="tocar ou pausar">▶</button>
+      <button class="btn redondo claro" id="btn-refazer" title="refazer (⇧⌘Z)" aria-label="refazer" disabled>↷</button>
       <div class="linha-tempo" id="linha-tempo"><div class="preenchido" id="preenchido"></div></div>
       <span class="tempo" id="tempo">0:00 / 0:00</span>
     </div>
@@ -75,6 +77,12 @@
             <input type="range" id="r-folga" min="0" max="0.3" step="0.01"></label>
         </div>
         <label class="interruptor"><input type="checkbox" id="c-pausas"><span></span> cortar as pausas automaticamente</label>
+      </div>
+
+      <div class="cartao">
+        <div class="cabeca-cartao"><p class="rotulo">linha do tempo</p><span class="mini">arraste por cima de um trecho pra cortar. clique num trecho cortado pra trazer de volta.</span></div>
+        <div class="onda-rolagem" id="onda-rolagem"><canvas id="onda" height="96"></canvas></div>
+        <div class="legenda-onda"><span><i class="q fica"></i> fica no vídeo</span><span><i class="q sai"></i> sai (pausa ou corte)</span><span><i class="q mao"></i> cortado na linha do tempo</span></div>
       </div>
 
       <div class="cartao claude-cortes" id="cortes-claude" hidden></div>
@@ -110,6 +118,13 @@
         <button class="btn borda" data-novo="desenho">◯ desenho</button>
         <button class="btn borda" data-novo="texto">T texto</button>
         <button class="btn borda" data-novo="cta">▭ botão de chamada</button>
+        <button class="btn borda" data-novo="efeito">⚡ zoom, tremida ou flash</button>
+        <button class="btn borda" data-novo="som">♪ efeito sonoro</button>
+      </div>
+
+      <div class="cartao">
+        <div class="cabeca-cartao"><p class="rotulo">trilha de fundo</p><span class="mini">envie uma música (mp3, wav, m4a) junto com os insertos</span></div>
+        <div id="trilha"></div>
       </div>
 
       <div class="cartao linha-camadas">
@@ -206,6 +221,14 @@
       </div>
 
       <div class="cartao">
+        <div class="cabeca-cartao">
+          <p class="rotulo">cor do vídeo</p>
+          <button class="btn escuro pequeno" id="cor-auto">corrigir a cor automaticamente</button>
+        </div>
+        <div id="cor"></div>
+      </div>
+
+      <div class="cartao">
         <p class="rotulo">enquadramento</p>
         <div class="pilulas" id="enquadramento">
           <button class="pilula" data-enq="preencher">preencher a tela</button>
@@ -253,6 +276,18 @@
 </main>
 
 <div class="aviso" id="aviso" role="status"></div>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <filter id="filtro-cor" color-interpolation-filters="sRGB">
+    <feColorMatrix id="fc-ganhos" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 1 0"/>
+    <feColorMatrix id="fc-sat" type="saturate" values="1"/>
+    <feComponentTransfer>
+      <feFuncR id="fc-r" type="linear" slope="1" intercept="0"/>
+      <feFuncG id="fc-g" type="linear" slope="1" intercept="0"/>
+      <feFuncB id="fc-b" type="linear" slope="1" intercept="0"/>
+    </feComponentTransfer>
+  </filter>
+</svg>
+<audio id="trilha-audio" loop preload="auto"></audio>
 <script src="/app/motion.js"></script>
 <script src="/app/app.js"></script>
 </body>

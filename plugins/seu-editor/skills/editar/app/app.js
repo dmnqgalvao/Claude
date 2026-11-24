@@ -12,7 +12,8 @@ const RITMOS = {
   natural: { pausa_max: 0.40, folga: 0.10 },
   acelerado: { pausa_max: 0.18, folga: 0.06 },
 };
-const NOMES_TIPO = { impacto: "palavra de impacto", imagem: "foto", video: "vídeo", desenho: "desenho", texto: "texto" };
+const NOMES_TIPO = { impacto: "palavra de impacto", imagem: "foto", video: "vídeo", desenho: "desenho", texto: "texto", efeito: "efeito", som: "efeito sonoro" };
+const NOMES_EFEITO = { zoom: "zoom rápido", tremida: "tremida", flash: "flash" };
 
 const S = {
   proj: null, mtime: null, plano: null, estilos: null,
@@ -74,6 +75,7 @@ async function api(metodo, rota, corpo, bruto) {
 let tSalvar, tPlano;
 function mudou({ transcricao = false, controles = true } = {}) {
   S.sujo = true;
+  registrar();
   clearTimeout(tSalvar); tSalvar = setTimeout(salvar, 450);
   clearTimeout(tPlano); tPlano = setTimeout(atualizarPlano, 50);
   if (transcricao) desenharTranscricao();
@@ -100,6 +102,7 @@ async function atualizarPlano() {
   S.plano = r.dados;
   desenharResumo();
   desenharTrilhas();
+  desenharOnda();
   if (S.sel) desenharEditorCamada(false);
 }
 
@@ -107,6 +110,7 @@ async function recarregar() {
   const r = await api("GET", "/api/projeto");
   S.proj = r.dados.projeto; S.mtime = r.dados.mtime;
   tudo();
+  registrar();
 }
 
 function tudo() {
@@ -115,6 +119,8 @@ function tudo() {
   desenharKits();
   desenharPaleta();
   desenharVisuais();
+  desenharCor();
+  desenharTrilhaFundo();
   atualizarPlano();
   if (S.sel && !camada(S.sel)) { S.sel = null; $("#editor-camada").hidden = true; }
   else if (S.sel) desenharEditorCamada(true);
@@ -177,6 +183,7 @@ function laco() {
     if (video.paused !== fundo.paused) video.paused ? fundo.pause() : fundo.play().catch(() => {});
   }
   desenharQuadro();
+  efeitosPrevia();
   requestAnimationFrame(laco);
 }
 
@@ -193,6 +200,8 @@ document.addEventListener("keydown", e => {
   if (e.target.matches("input, textarea, select")) return;
   if (e.code === "Space") { e.preventDefault(); alternar(); }
   if ((e.key === "Delete" || e.key === "Backspace") && S.sel && S.aba === "camadas") { apagarCamada(S.sel); }
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z") { e.preventDefault(); e.shiftKey ? refazer() : desfazer(); }
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "y") { e.preventDefault(); refazer(); }
 });
 
 /* ============================================================ quadro (motion.js) */
@@ -541,8 +550,9 @@ async function listarInsertos() {
   S.insertos = r.dados.itens || [];
   $("#insertos").innerHTML = S.insertos.map(it => {
     const src = "/insertos/" + encodeURIComponent(it.nome);
-    const midia = it.tipo === "video" ? `<video src="${src}#t=0.5" muted preload="metadata"></video>` : `<img src="${src}" alt="" loading="lazy">`;
-    return `<button class="inserto" data-nome="${esc(it.nome)}" data-tipo="${it.tipo}" title="${esc(it.nome)}">${midia}<span class="selo-tipo">${it.tipo === "video" ? "vídeo" : "foto"}</span></button>`;
+    const midia = it.tipo === "video" ? `<video src="${src}#t=0.5" muted preload="metadata"></video>`
+      : it.tipo === "audio" ? `<span class="icone-audio">♫</span>` : `<img src="${src}" alt="" loading="lazy">`;
+    return `<button class="inserto" data-nome="${esc(it.nome)}" data-tipo="${it.tipo}" title="${esc(it.nome)}">${midia}<span class="selo-tipo">${{ video: "vídeo", audio: "música", imagem: "foto" }[it.tipo]}</span></button>`;
   }).join("");
 }
 
@@ -554,6 +564,7 @@ async function enviarInsertos(arquivos) {
     if (r.ok) n++; else aviso(r.dados.erro || `não deu pra enviar ${f.name}`);
   }
   await listarInsertos();
+  desenharTrilhaFundo();
   if (n) aviso(`${n} ${n === 1 ? "arquivo enviado" : "arquivos enviados"}. clique pra colocar no vídeo`);
 }
 $("#enviar-insertos").onchange = e => { enviarInsertos([...e.target.files]); e.target.value = ""; };
@@ -565,6 +576,11 @@ cartaoInsertos.addEventListener("drop", e => { e.preventDefault(); cartaoInserto
 let ladoCartao = 1;
 $("#insertos").onclick = e => {
   const b = e.target.closest(".inserto"); if (!b) return;
+  if (b.dataset.tipo === "audio") {
+    Object.assign(S.proj.trilha, { arquivo: b.dataset.nome });
+    desenharTrilhaFundo(); mudou(); aviso("música colocada como trilha de fundo");
+    return;
+  }
   const p = palavraAtual(); if (!p) return;
   ladoCartao *= -1;
   const c = b.dataset.tipo === "video"
@@ -581,6 +597,8 @@ $$(".adicionar [data-novo]").forEach(b => b.onclick = () => {
   if (tipo === "desenho") c = { id: novoId("des"), tipo: "desenho", forma: "circulo", cor: "#E8352E", palavra: p.i, duracao: 2, x: .5, y: .45, tamanho: .7, espessura: 12, rot: 0 };
   if (tipo === "texto") c = { id: novoId("txt"), tipo: "texto", estilo: "frase", texto: "seu texto aqui", palavra: p.i, duracao: 3, x: .5, y: .3, tamanho: 1 };
   if (tipo === "cta") c = { id: novoId("txt"), tipo: "texto", estilo: "cta", texto: "comenta EU QUERO", ini: 0, ate_o_fim: true, x: .5, y: .8, tamanho: 1 };
+  if (tipo === "efeito") c = { id: novoId("efe"), tipo: "efeito", efeito: "zoom", palavra: p.i, duracao: 1.2, intensidade: 1.18, x: .5, y: .42 };
+  if (tipo === "som") c = { id: novoId("som"), tipo: "som", som: "whoosh", palavra: p.i, volume: .8 };
   adicionarCamada(c);
 });
 
@@ -618,7 +636,7 @@ function desenharTrilhas() {
   let html = `<div class="regua" id="regua">${regua}</div><div class="agulha"></div>`;
   for (let f = 0; f < Math.max(1, faixas.length); f++) {
     html += `<div class="faixa">` + lista.filter(c => c._faixa === f).map(c => {
-      const nome = c.texto || c.arquivo || (S.estilos.desenhos[c.forma]?.nome) || NOMES_TIPO[c.tipo];
+      const nome = c.texto || c.arquivo || (S.estilos.desenhos[c.forma]?.nome) || NOMES_EFEITO[c.efeito] || (c.tipo === "som" ? "♪ " + c.som : NOMES_TIPO[c.tipo]);
       return `<div class="barra-camada ${c.tipo}${c.id === S.sel ? " sel" : ""}" data-id="${c.id}"
         style="left:${c.ini_out / total * 100}%;width:${(c.fim_out - c.ini_out) / total * 100}%" title="${esc(nome)}">${esc(String(nome).replace(/\|/g, " "))}<span class="ponta"></span></div>`;
     }).join("") + `</div>`;
@@ -696,14 +714,35 @@ function desenharEditorCamada(forcar) {
     corpo.appendChild(linha("cor", controleCor(c.cor || "#E8352E", v => mexe("cor", v))));
     corpo.appendChild(campoFaixa("espessura do traço", 3, 30, 1, c.espessura || 12, x => x + "px", v => mexe("espessura", v)));
   }
-  if (c.tipo !== "video" && c.tipo !== "desenho" && !(c.tipo === "imagem" && c.modo === "tela")) {
+  if (c.tipo === "efeito") {
+    corpo.appendChild(linha("efeito", campoPilulas(Object.entries(NOMES_EFEITO), c.efeito, v => { mexe("efeito", v); setTimeout(() => desenharEditorCamada(true), 80); })));
+    if (c.efeito === "zoom") {
+      corpo.appendChild(linha("jeito", campoPilulas([["suave", "suave"], ["seco", "seco, de uma vez"]], c.estilo || "suave", v => mexe("estilo", v))));
+      corpo.appendChild(campoFaixa("quanto aproxima", 1.05, 1.6, .01, c.intensidade ?? 1.18, x => "+" + Math.round((x - 1) * 100) + "%", v => mexe("intensidade", v)));
+      corpo.appendChild(campoFaixa("ponto de foco na horizontal", 0, 1, .01, c.x ?? .5, x => Math.round(x * 100) + "%", v => mexe("x", v)));
+      corpo.appendChild(campoFaixa("ponto de foco na vertical", 0, 1, .01, c.y ?? .42, x => Math.round(x * 100) + "%", v => mexe("y", v)));
+    } else if (c.efeito === "tremida") {
+      corpo.appendChild(campoFaixa("força", .3, 3, .1, c.intensidade ?? 1, x => x.toFixed(1).replace(".", ","), v => mexe("intensidade", v)));
+    } else {
+      corpo.appendChild(linha("cor", controleCor(c.cor || "#FFFFFF", v => mexe("cor", v))));
+      corpo.appendChild(campoFaixa("força", .2, 1, .05, c.intensidade ?? .9, x => Math.round(x * 100) + "%", v => mexe("intensidade", v)));
+    }
+  }
+  if (c.tipo === "som") {
+    corpo.appendChild(linha("som", campoPilulas(Object.keys(S.estilos.sons).map(k => [k, k]), c.som, v => { mexe("som", v); tocarSom(v, c.volume ?? .8); })));
+    corpo.appendChild(campoFaixa("volume", .1, 1.5, .05, c.volume ?? .8, x => Math.round(x * 100) + "%", v => mexe("volume", v)));
+  } else {
+    corpo.appendChild(linha("som na entrada", campoPilulas([["", "nenhum"], ...Object.keys(S.estilos.sons).map(k => [k, k])], c.som || "",
+      v => { mexe("som", v || null); if (v) tocarSom(v, c.som_volume ?? .8); })));
+  }
+  if (c.tipo !== "video" && c.tipo !== "desenho" && c.tipo !== "efeito" && c.tipo !== "som" && !(c.tipo === "imagem" && c.modo === "tela")) {
     const ent = cp?.entrada || c.entrada || "pop";
     corpo.appendChild(linha("entrada", campoPilulas([["pop", "pop"], ["desliza", "sobe"], ["fade", "aparece"], ["escreve", "escrevendo"], ["nenhuma", "seco"]], ent, v => mexe("entrada", v))));
   }
   if (c.tipo === "impacto") corpo.appendChild(campoChave("ligar com linhas às fotos que estão na tela", c.ligar, v => mexe("ligar", v)));
 
   const telaInteira = (c.tipo === "imagem" || c.tipo === "video") && c.modo === "tela";
-  if (!telaInteira) {
+  if (!telaInteira && c.tipo !== "efeito" && c.tipo !== "som") {
     const tamDef = c.tipo === "desenho" || c.tipo === "imagem" || c.tipo === "video" ? [.1, 1.2, .01, c.tamanho ?? .36, x => Math.round(x * 100) + "% da largura"] : [.3, 3, .05, c.tamanho ?? 1, x => Math.round(x * 100) + "%"];
     corpo.appendChild(campoFaixa("tamanho", tamDef[0], tamDef[1], tamDef[2], tamDef[3], tamDef[4], v => mexe("tamanho", v)));
     corpo.appendChild(campoFaixa("inclinação", -30, 30, 1, c.rot ?? cp?.rot ?? 0, x => x + "°", v => mexe("rot", v)));
@@ -711,7 +750,7 @@ function desenharEditorCamada(forcar) {
     corpo.appendChild(campoFaixa("posição na vertical", 0, 1, .01, c.y ?? .5, x => Math.round(x * 100) + "%", v => mexe("y", v)));
   }
   if (c.tipo === "texto") corpo.appendChild(campoChave("fica até o fim do vídeo", c.ate_o_fim, v => { mexe("ate_o_fim", v || null); setTimeout(() => desenharEditorCamada(true), 80); }));
-  if (!c.ate_o_fim) corpo.appendChild(campoFaixa("duração", .3, 12, .1, c.duracao ?? 2, seg, v => mexe("duracao", v)));
+  if (!c.ate_o_fim && c.tipo !== "som") corpo.appendChild(campoFaixa("duração", .3, 12, .1, c.duracao ?? 2, seg, v => mexe("duracao", v)));
   ed.appendChild(corpo);
 
   if (c.tipo === "impacto" || c.tipo === "texto") {
@@ -733,6 +772,193 @@ function desenharEditorCamada(forcar) {
   ed.querySelector("[data-acao=apagar]").onclick = () => apagarCamada(c.id);
 }
 
+/* ============================================================ desfazer e refazer */
+const H = { pilha: [], pos: -1, t: null, aplicando: false };
+function registrar() {
+  if (H.aplicando || !S.proj) return;
+  clearTimeout(H.t);
+  H.t = setTimeout(gravarHistorico, 350);
+}
+function gravarHistorico() {
+  H.t = null;
+  const foto = JSON.stringify(S.proj);
+  if (H.pilha[H.pos] === foto) return;
+  H.pilha = H.pilha.slice(0, H.pos + 1);
+  H.pilha.push(foto);
+  if (H.pilha.length > 150) H.pilha.shift();
+  H.pos = H.pilha.length - 1;
+  botoesHistorico();
+}
+function botoesHistorico() {
+  $("#btn-desfazer").disabled = H.pos <= 0;
+  $("#btn-refazer").disabled = H.pos >= H.pilha.length - 1;
+}
+function aplicarHistorico(pos) {
+  H.aplicando = true;
+  H.pos = pos;
+  S.proj = JSON.parse(H.pilha[pos]);
+  S.sujo = true;
+  clearTimeout(tSalvar); tSalvar = setTimeout(salvar, 200);
+  tudo();
+  H.aplicando = false;
+  botoesHistorico();
+}
+function desfazer() {
+  if (H.t) { clearTimeout(H.t); gravarHistorico(); }
+  if (H.pos > 0) { aplicarHistorico(H.pos - 1); aviso("desfeito"); }
+}
+function refazer() { if (H.pos < H.pilha.length - 1) { aplicarHistorico(H.pos + 1); aviso("refeito"); } }
+$("#btn-desfazer").onclick = desfazer;
+$("#btn-refazer").onclick = refazer;
+
+/* ============================================================ linha do tempo com a onda do áudio */
+let ONDA = null, selOnda = null;
+async function carregarOnda() { ONDA = (await api("GET", "/api/onda")).dados; desenharOnda(); }
+function larguraOnda() {
+  const dur = S.proj?.info?.duracao || 1;
+  return Math.max($("#onda-rolagem").clientWidth, Math.round(dur * 36));
+}
+function desenharOnda() {
+  const cv = $("#onda"); if (!cv || !S.plano || !ONDA || !$("#onda-rolagem").clientWidth) return;
+  const dur = S.proj.info.duracao || 1, w = larguraOnda(), h = 96, dpr = devicePixelRatio || 1;
+  cv.width = w * dpr; cv.height = h * dpr; cv.style.width = w + "px"; cv.style.height = h + "px";
+  const g = cv.getContext("2d"); g.scale(dpr, dpr); g.clearRect(0, 0, w, h);
+  const ps = ONDA.picos, porS = ONDA.por_segundo;
+  const px = t => t / dur * w;
+  for (const c of S.proj.cortes_tempo || []) {
+    const x0 = px(c.ini), x1 = px(c.fim);
+    g.fillStyle = "#ffd0e3"; g.fillRect(x0, 0, x1 - x0, h);
+    g.save(); g.beginPath(); g.rect(x0, 0, x1 - x0, h); g.clip();
+    g.strokeStyle = "#fb76b2"; g.lineWidth = 1.5;
+    for (let x = x0 - h; x < x1; x += 7) { g.beginPath(); g.moveTo(x, h); g.lineTo(x + h, 0); g.stroke(); }
+    g.restore();
+  }
+  const barra = Math.max(1.5, w / (dur * 18));
+  for (let x = 0; x < w; x += barra + 1) {
+    const t = x / w * dur;
+    const i0 = Math.floor(t * porS), i1 = Math.max(i0 + 1, Math.floor((x + barra) / w * dur * porS));
+    let pico = 0; for (let i = i0; i < i1 && i < ps.length; i++) pico = Math.max(pico, ps[i]);
+    const alt = Math.max(2, Math.min(1, pico * 1.6) * (h - 16));
+    g.fillStyle = segDe(t) ? "#2b2b2b" : "#cfcfcf";
+    g.fillRect(x, (h - alt) / 2, barra, alt);
+  }
+  if (selOnda) { g.fillStyle = "rgba(251,118,178,.35)"; g.fillRect(px(Math.min(selOnda.a, selOnda.b)), 0, Math.abs(px(selOnda.b) - px(selOnda.a)), h); }
+  g.fillStyle = "#c2366f"; g.fillRect(px(video.currentTime) - 1, 0, 2, h);
+}
+function tempoOnda(e) {
+  const r = $("#onda").getBoundingClientRect();
+  return Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)) * (S.proj.info.duracao || 1);
+}
+$("#onda").addEventListener("pointerdown", e => { selOnda = { a: tempoOnda(e), b: tempoOnda(e) }; $("#onda").setPointerCapture(e.pointerId); });
+$("#onda").addEventListener("pointermove", e => { if (selOnda) { selOnda.b = tempoOnda(e); desenharOnda(); } });
+$("#onda").addEventListener("pointerup", () => {
+  if (!selOnda) return;
+  const a = Math.min(selOnda.a, selOnda.b), b = Math.max(selOnda.a, selOnda.b);
+  selOnda = null;
+  const lista = S.proj.cortes_tempo ||= [];
+  if (b - a < 0.08) {
+    const k = lista.findIndex(c => a >= c.ini && a <= c.fim);
+    if (k >= 0) {
+      const c = lista.splice(k, 1)[0];
+      for (const p of S.proj.palavras) if (p.motivo === "linha do tempo" && p.ini >= c.ini - .01 && p.fim <= c.fim + .01) { p.cortada = false; delete p.motivo; }
+      aviso("esse trecho voltou pro vídeo"); mudou({ transcricao: true }); return;
+    }
+    video.currentTime = a; desenharOnda(); return;
+  }
+  lista.push({ ini: Math.round(a * 1000) / 1000, fim: Math.round(b * 1000) / 1000 });
+  lista.sort((x, y) => x.ini - y.ini);
+  for (let i = lista.length - 1; i > 0; i--) if (lista[i].ini <= lista[i - 1].fim) { lista[i - 1].fim = Math.max(lista[i - 1].fim, lista[i].fim); lista.splice(i, 1); }
+  for (const p of S.proj.palavras) { const m = (p.ini + p.fim) / 2; if (m >= a && m <= b && !p.cortada) { p.cortada = true; p.motivo = "linha do tempo"; p.origem = "voce"; } }
+  aviso(`${seg(b - a)} cortados. se cortou demais, tem o desfazer`);
+  mudou({ transcricao: true });
+});
+
+/* ============================================================ cor do vídeo */
+function desenharCor() {
+  const alvo = $("#cor"); if (!alvo || !S.proj) return;
+  const c = S.proj.cor;
+  alvo.innerHTML = "";
+  const grade = document.createElement("div"); grade.className = "vis";
+  const nomes = { nenhum: "original", quente: "quente", frio: "frio", vivo: "vivo", suave: "suave", filme: "filme", pb: "preto e branco" };
+  grade.appendChild(linha("filtro", campoPilulas(Object.keys(S.estilos.filtros_cor).map(k => [k, nomes[k] || k]), c.filtro || "nenhum", v => {
+    Object.assign(c, S.estilos.filtros_cor[v], { filtro: v }); mudou({ controles: false }); setTimeout(desenharCor, 50);
+  })));
+  const mexe = (k, v) => { c[k] = v; c.filtro = "personalizado"; mudou({ controles: false }); };
+  grade.appendChild(campoFaixa("brilho", -.25, .25, .005, c.brilho || 0, x => (x > 0 ? "+" : "") + Math.round(x * 100), v => mexe("brilho", v)));
+  grade.appendChild(campoFaixa("contraste", .6, 1.6, .01, c.contraste ?? 1, x => Math.round(x * 100) + "%", v => mexe("contraste", v)));
+  grade.appendChild(campoFaixa("saturação", 0, 2, .01, c.saturacao ?? 1, x => Math.round(x * 100) + "%", v => mexe("saturacao", v)));
+  grade.appendChild(campoFaixa("temperatura", -1, 1, .01, c.temperatura || 0, x => x > .02 ? "mais quente" : x < -.02 ? "mais fria" : "neutra", v => mexe("temperatura", v)));
+  const auto = campoChave("correção automática ligada", c.auto, v => { c.auto = v; mudou({ controles: false }); });
+  auto.classList.add("largo");
+  grade.appendChild(auto);
+  alvo.appendChild(grade);
+}
+$("#cor-auto").onclick = async e => {
+  const b = e.currentTarget;
+  b.disabled = true; b.textContent = "analisando o vídeo";
+  const r = await api("POST", "/api/cor-auto");
+  b.disabled = false; b.textContent = "corrigir a cor automaticamente";
+  if (!r.ok) { aviso("não consegui analisar a cor agora"); return; }
+  Object.assign(S.proj.cor, r.dados, { auto: true });
+  desenharCor(); mudou({ controles: false });
+  aviso("cor corrigida: luz e branco acertados. dá pra ajustar nos controles");
+};
+function aplicarCorPrevia() {
+  const c = S.plano?.cor; const cel = $("#celular");
+  if (!c || c.neutra) { cel.classList.remove("cor-ativa"); return; }
+  cel.classList.add("cor-ativa");
+  $("#fc-ganhos").setAttribute("values", `${c.r} 0 0 0 0  0 ${c.g} 0 0 0  0 0 ${c.b} 0 0  0 0 0 1 0`);
+  $("#fc-sat").setAttribute("values", c.saturacao);
+  const inter = .5 * (1 - c.contraste) + c.brilho;
+  for (const id of ["#fc-r", "#fc-g", "#fc-b"]) { $(id).setAttribute("slope", c.contraste); $(id).setAttribute("intercept", inter); }
+}
+
+/* ============================================================ trilha de fundo e sons */
+function desenharTrilhaFundo() {
+  const alvo = $("#trilha"); if (!alvo || !S.proj) return;
+  const tr = S.proj.trilha, musicas = S.insertos.filter(i => i.tipo === "audio");
+  alvo.innerHTML = "";
+  if (!musicas.length && !tr.arquivo) { alvo.innerHTML = `<p class="mini">nenhuma música enviada ainda.</p>`; return; }
+  const grade = document.createElement("div"); grade.className = "vis";
+  const sel = document.createElement("label"); sel.className = "campo";
+  sel.innerHTML = `música <select><option value="">sem trilha</option>${musicas.map(m => `<option ${m.nome === tr.arquivo ? "selected" : ""}>${esc(m.nome)}</option>`).join("")}</select>`;
+  sel.querySelector("select").onchange = e => { tr.arquivo = e.target.value || null; mudou({ controles: false }); };
+  grade.appendChild(sel);
+  grade.appendChild(campoFaixa("volume da música", .02, .6, .01, tr.volume ?? .14, x => Math.round(x * 100) + "%", v => { tr.volume = v; mudou({ controles: false }); }));
+  const ch = campoChave("abaixar a música quando você fala", tr.abaixar_na_fala !== false, v => { tr.abaixar_na_fala = v; mudou({ controles: false }); });
+  ch.classList.add("largo"); grade.appendChild(ch);
+  alvo.appendChild(grade);
+}
+const cacheSons = {};
+function tocarSom(nome, volume = .8) {
+  const src = S.estilos.sons[nome] ? `/sons/${nome}.wav` : `/insertos/${encodeURIComponent(nome)}`;
+  const base = cacheSons[src] ||= new Audio(src);
+  const a = base.cloneNode(); a.volume = Math.min(1, volume); a.play().catch(() => {});
+}
+let outAnterior = 0;
+function efeitosPrevia() {
+  if (!S.plano) return;
+  const out = paraSaida(video.currentTime);
+  const ef = Motion.efeitoBase(S.plano.camadas, out);
+  const tv = $(".tela-video");
+  tv.style.transformOrigin = `${ef.fx * 100}% ${ef.fy * 100}%`;
+  tv.style.transform = ef.z !== 1 || ef.sx || ef.sy ? `translate(${-ef.sx * 100}%, ${-ef.sy * 100}%) scale(${ef.z})` : "";
+  aplicarCorPrevia();
+  if (!video.paused && out > outAnterior && out - outAnterior < .3) {
+    for (const s of S.plano.sons || []) if (s.ini_out > outAnterior && s.ini_out <= out) tocarSom(s.som, s.volume);
+  }
+  outAnterior = out;
+  const ta = $("#trilha-audio"), tr = S.plano.trilha;
+  if (tr && !video.paused) {
+    const src = "/insertos/" + encodeURIComponent(tr.arquivo);
+    if (!ta.src.endsWith(src)) ta.src = src;
+    ta.volume = Math.min(1, (tr.volume ?? .14) * 1.8);
+    if (ta.duration && Math.abs(ta.currentTime - out % ta.duration) > .4) ta.currentTime = out % ta.duration;
+    if (ta.paused) ta.play().catch(() => {});
+  } else if (!ta.paused) ta.pause();
+  if (S.aba === "cortes" && !video.paused) desenharOnda();
+}
+
 /* ============================================================ abas e eventos */
 $$(".aba").forEach(b => b.onclick = () => irPara(b.dataset.aba));
 function irPara(aba) {
@@ -742,6 +968,7 @@ function irPara(aba) {
   document.body.classList.toggle("camadas-ativa", aba === "camadas");
   if (aba === "exportar") listarExportados();
   if (aba === "camadas") { listarInsertos(); desenharTrilhas(); }
+  if (aba === "cortes") setTimeout(desenharOnda, 30);
   scrollTo({ top: 0, behavior: "smooth" });
 }
 $("#btn-exportar-topo").onclick = () => irPara("exportar");
@@ -860,8 +1087,10 @@ async function vigiar() {
   video.src = "/video"; fundo.src = "/video";
   await document.fonts.ready;
   tudo();
-  listarInsertos();
-  addEventListener("resize", desenharQuadro);
+  registrar();
+  listarInsertos().then(desenharTrilhaFundo);
+  carregarOnda();
+  addEventListener("resize", () => { desenharQuadro(); desenharOnda(); });
   requestAnimationFrame(laco);
   vigiar();
 })();

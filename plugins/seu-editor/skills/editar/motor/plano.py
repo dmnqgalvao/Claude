@@ -25,6 +25,28 @@ def limpar_texto(t, sem_pontuacao=True, caixa_alta=False):
     return t
 
 
+COR_NEUTRA = {"auto": False, "ganhos": [1.0, 1.0, 1.0], "filtro": "nenhum",
+              "brilho": 0.0, "contraste": 1.0, "saturacao": 1.0, "temperatura": 0.0}
+
+
+def cor_final(cor):
+    """Junta correção automática e ajustes num só conjunto: ganho por canal,
+    brilho (somado), contraste e saturação. Prévia e exportação usam os mesmos números."""
+    c = dict(COR_NEUTRA)
+    c.update(cor or {})
+    g = list(c["ganhos"]) if c.get("auto") else [1.0, 1.0, 1.0]
+    t = float(c.get("temperatura", 0))
+    g = [g[0] * (1 + .09 * t), g[1] * (1 + .015 * t), g[2] * (1 - .09 * t)]
+    final = {"r": round(g[0], 4), "g": round(g[1], 4), "b": round(g[2], 4),
+             "brilho": round(float(c.get("brilho", 0)) + (c.get("auto_brilho", 0) if c.get("auto") else 0), 4),
+             "contraste": round(float(c.get("contraste", 1)) * (c.get("auto_contraste", 1) if c.get("auto") else 1), 4),
+             "saturacao": round(float(c.get("saturacao", 1)), 4)}
+    final["neutra"] = (abs(final["r"] - 1) < 1e-3 and abs(final["g"] - 1) < 1e-3 and abs(final["b"] - 1) < 1e-3
+                       and abs(final["brilho"]) < 1e-3 and abs(final["contraste"] - 1) < 1e-3
+                       and abs(final["saturacao"] - 1) < 1e-3)
+    return final
+
+
 def calcular_segmentos(proj):
     palavras = proj.get("palavras", [])
     aj = proj.get("ajustes", {})
@@ -91,6 +113,19 @@ def calcular_segmentos(proj):
             fim = min(fim, corte_ini)
         atual[1] = min(duracao, max(fim, anterior["fim"]))
         segs.append(atual)
+
+    # cortes feitos direto na linha do tempo (tempo do vídeo original)
+    for c in sorted(proj.get("cortes_tempo", []), key=lambda c: c["ini"]):
+        novos = []
+        for ini, fim in segs:
+            if c["fim"] <= ini or c["ini"] >= fim:
+                novos.append([ini, fim])
+                continue
+            if c["ini"] > ini:
+                novos.append([ini, c["ini"]])
+            if c["fim"] < fim:
+                novos.append([c["fim"], fim])
+        segs = novos
 
     saida = []
     acumulado = 0.0
@@ -220,7 +255,8 @@ def montar_plano(proj):
         else:
             ini = float(c.get("ini", 0))
         ini = max(0.0, min(ini, total))
-        fim = total if c.get("ate_o_fim") else min(total, ini + float(c.get("duracao", 2.0)))
+        dur_padrao = 0.6 if c.get("tipo") == "som" else 2.0
+        fim = total if c.get("ate_o_fim") else min(total, ini + float(c.get("duracao", dur_padrao)))
         if fim - ini < 0.05:
             continue
         extra = {}
@@ -239,11 +275,20 @@ def montar_plano(proj):
                   "fim_out": round(min(total, float(g.get("duracao", 3.0))), 3),
                   "posicao": float(g.get("posicao", 0.2))}
 
+    sons = []
+    for c in camadas:
+        if c.get("som"):
+            sons.append({"som": c["som"], "ini_out": round(c["ini_out"] + float(c.get("som_atraso", 0)), 3),
+                         "volume": float(c.get("som_volume", c.get("volume", 0.8))), "id": c.get("id")})
+
     duracao_original = float(proj.get("info", {}).get("duracao", 0))
     return {
         "segmentos": segs,
         "blocos": saida_blocos if leg.get("ativa", True) else [],
         "camadas": camadas,
+        "sons": sons,
+        "cor": cor_final(proj.get("cor")),
+        "trilha": proj.get("trilha") if (proj.get("trilha") or {}).get("arquivo") else None,
         "gancho": gancho,
         "legenda": visual,
         "gancho_visual": E.resolver_fonte(E.visual_completo(E.GANCHO_PADRAO, proj.get("gancho", {}).get("visual")), fontes_proj),

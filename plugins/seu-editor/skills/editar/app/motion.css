@@ -20,6 +20,12 @@
 @font-face { font-family: "Bricolage Grotesque"; src: url(/fontes/BricolageGrotesque.ttf); font-weight: 200 800; }
 @font-face { font-family: "Space Mono"; src: url(/fontes/SpaceMono-Regular.ttf); font-weight: 400; }
 @font-face { font-family: "Space Mono"; src: url(/fontes/SpaceMono-Bold.ttf); font-weight: 700; }
+@font-face { font-family: "Inter Tight"; src: url(/fontes/InterTight.ttf); font-weight: 100 900; }
+@font-face { font-family: "Open Sauce Sans"; src: url(/fontes/OpenSauceSans-Regular.woff2) format("woff2"); font-weight: 400; }
+@font-face { font-family: "Open Sauce Sans"; src: url(/fontes/OpenSauceSans-Bold.woff2) format("woff2"); font-weight: 700; }
+@font-face { font-family: "Oswald"; src: url(/fontes/Oswald.ttf); font-weight: 200 700; }
+@font-face { font-family: "Instrument Serif"; src: url(/fontes/InstrumentSerif-Regular.ttf); }
+@font-face { font-family: "Instrument Serif"; src: url(/fontes/InstrumentSerif-Italic.ttf); font-style: italic; }
 @font-face { font-family: "Courier Prime"; src: url(/fontes/CourierPrime-Bold.ttf); font-weight: 700; }
 
 .tela { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; transform-origin: 0 0; overflow: hidden; }
@@ -45,4 +51,5 @@
 .m-desenho { overflow: visible; height: auto; }
 .m-svg-cheio { left: 0; top: 0; width: 1080px; height: 1920px; overflow: visible; }
 
+.m-flash { left: 0; top: 0; width: 1080px; height: 1920px; pointer-events: none; }
 .m-selecionada { outline: 6px dashed #fb76b2; outline-offset: 14px; }

@@ -62,7 +62,7 @@
     el.style.fontStyle = v.italico ? "italic" : "normal";
     el.style.fontSize = (v.tamanho * escala) + "px";
     el.style.lineHeight = v.entrelinhas ?? 1.14;
-    el.style.letterSpacing = ((v.espacamento || 0) / 100) + "em";
+    el.style.letterSpacing = (((f.tracking || 0) + (v.espacamento || 0)) / 100) + "em";
     el.style.color = v.cor;
     el.style.textTransform = v.caixa_alta ? "uppercase" : "none";
     const fundo = v.fundo && v.fundo !== "nenhum";
@@ -345,6 +345,34 @@
     };
   }
 
+  /* -------------------------------------------------------- efeitos */
+  function itemFlash(c) {
+    return {
+      k: "fla" + c.id + (c.cor || ""), z: 95, id: null,
+      criar() { const el = document.createElement("div"); el.className = "m-flash"; el.style.background = c.cor || "#FFFFFF"; return el; },
+      atualizar(el, t) { const p = c01((t - c.ini_out) / Math.min(.35, c.fim_out - c.ini_out)); el.style.opacity = r3((1 - ease.out(p)) * (c.intensidade ?? .9)); return ""; },
+    };
+  }
+
+  /* zoom rápido e tremida no vídeo de baixo; mesma conta do FFmpeg (render.py, _expr_efeitos) */
+  function efeitoBase(camadas, t) {
+    let z = 1, fx = .5, fy = .5, sx = 0, sy = 0;
+    for (const c of camadas || []) {
+      if (c.tipo !== "efeito" || (c.efeito !== "zoom" && c.efeito !== "tremida")) continue;
+      const d = c.efeito === "zoom" && c.estilo === "seco" ? .001 : .14;
+      const r = c01(Math.min((t - c.ini_out) / d, (c.fim_out - t) / d));
+      if (!r) continue;
+      if (c.efeito === "zoom") {
+        z += ((c.intensidade ?? 1.18) - 1) * r;
+        fx += ((c.x ?? .5) - .5) * r; fy += ((c.y ?? .45) - .5) * r;
+      } else {
+        const amp = (c.intensidade ?? 1) * .012;
+        z += .05 * r; sx += amp * r * Math.sin(t * 71); sy += amp * r * Math.cos(t * 59);
+      }
+    }
+    return { z, fx, fy, sx, sy };
+  }
+
   /* -------------------------------------------------------- cena */
   function itens(ctx, t) {
     const { plano } = ctx;
@@ -362,6 +390,7 @@
       }
       else if (c.tipo === "desenho") lista.push(itemDesenho(c, ctx));
       else if (c.tipo === "texto") lista.push(itemTexto(c, ctx));
+      else if (c.tipo === "efeito" && c.efeito === "flash") lista.push(itemFlash(c));
     }
     if (plano.gancho && t < plano.gancho.fim_out) lista.push(itemGancho(plano.gancho, plano.gancho_visual, ctx));
     const k = plano.blocos.findIndex(b => t >= b.ini_out && t < b.fim_out);
@@ -416,5 +445,6 @@
     },
     cena, preparar, aplicarVisual: (el, v, e) => aplicarVisual(el, v, e),
     aspectoDesenho: f => ASPECTO[f] || 1,
+    efeitoBase,
   };
 })(window);

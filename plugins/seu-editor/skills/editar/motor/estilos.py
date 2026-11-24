@@ -20,6 +20,12 @@ PASTA_FONTES = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__fi
 # id -> como aparece na lista, pilha de fontes do CSS, peso e largura média
 # de uma letra (em fração do tamanho) pra calcular quantas letras cabem.
 FONTES = {
+    "bootzy":     {"nome": "Bootzy TM", "familia": '"Bootzy TM", "Bootzy", "Inter Tight"', "peso": 800, "largura": .5, "tracking": -4},
+    "opensauce":  {"nome": "Open Sauce", "familia": '"Open Sauce Sans", "Open Sauce", "Open Sauce One"', "peso": 400, "largura": .54},
+    "opensauce-bold": {"nome": "Open Sauce Bold", "familia": '"Open Sauce Sans", "Open Sauce", "Open Sauce One"', "peso": 700, "largura": .57},
+    "courier":    {"nome": "Courier New Bold", "familia": '"Courier New", Courier, "Courier Prime"', "peso": 700, "largura": .6},
+    "condensada": {"nome": "Condensada (Oswald)", "familia": '"Oswald"', "peso": 600, "largura": .42},
+    "instrument": {"nome": "Instrument Serif", "familia": '"Instrument Serif"', "peso": 400, "largura": .42},
     "helvetica":  {"nome": "Helvetica Bold", "familia": '"Helvetica Neue", Helvetica, "Arimo"', "peso": 700, "largura": .56},
     "helvetica-regular": {"nome": "Helvetica", "familia": '"Helvetica Neue", Helvetica, "Arimo"', "peso": 400, "largura": .53},
     "times":      {"nome": "Times New Roman", "familia": '"Times New Roman", Times, "Tinos"', "peso": 400, "largura": .46},
@@ -44,10 +50,10 @@ FONTES = {
 # de impacto; "texto" vale pra legenda, frases e botões. Cores, contorno e
 # fundo continuam livres por cima de qualquer estilo.
 KITS = [
-    {"id": "classico", "nome": "clássico", "destaque": "times", "texto": "helvetica-regular"},
-    {"id": "descolado", "nome": "descolado", "destaque": "chalkduster", "texto": "helvetica"},
-    {"id": "romantico", "nome": "romântico", "destaque": "burgues", "texto": "futura"},
-    {"id": "normal", "nome": "normal", "destaque": "bricolage", "texto": "spacemono"},
+    {"id": "cool", "nome": "cool", "destaque": "bootzy", "texto": "helvetica-regular"},
+    {"id": "star", "nome": "star", "destaque": "opensauce-bold", "texto": "courier"},
+    {"id": "basic", "nome": "basic", "destaque": "condensada", "texto": "futura"},
+    {"id": "glow", "nome": "glow", "destaque": "helvetica", "texto": "instrument"},
 ]
 KIT_PADRAO = KITS[0]
 
@@ -163,4 +169,13 @@ def estilos_para_interface(dados=None):
         "fontes": todas_as_fontes(dados), "kits": KITS, "paleta": PALETA_PADRAO,
         "visual_padrao": VISUAL_PADRAO, "legenda_padrao": LEGENDA_PADRAO, "gancho_padrao": GANCHO_PADRAO,
         "impacto": IMPACTO, "textos": TEXTOS, "desenhos": DESENHOS, "entradas": ENTRADAS,
+        "filtros_cor": _filtros_cor(), "sons": SONS,
     }
+
+
+SONS = {"whoosh": "whoosh", "pop": "pop", "ding": "ding", "clique": "clique", "impacto": "impacto", "subida": "subida"}
+
+
+def _filtros_cor():
+    from .cor import FILTROS
+    return FILTROS

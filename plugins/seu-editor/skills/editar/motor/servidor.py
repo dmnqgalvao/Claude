@@ -94,6 +94,10 @@ class Estudio(BaseHTTPRequestHandler):
         if rota == "/video":
             proj = P.carregar(self.pasta)
             return self._arquivo(proj["video"])
+        if rota.startswith("/sons/"):
+            return self._estatico(PASTA_SONS, rota[6:])
+        if rota == "/api/onda":
+            return self._json(forma_de_onda(self.pasta))
         if rota == "/render":
             return self._arquivo(os.path.join(PASTA_APP, "render.html"), "text/html; charset=utf-8")
         if rota.startswith("/insertos/"):
@@ -165,7 +169,7 @@ class Estudio(BaseHTTPRequestHandler):
             nome = os.path.basename(unquote(parse_qs(urlparse(self.path).query).get("nome", [""])[0]))
             nome = re.sub(r"[^\w.\- ]+", "-", nome).strip() or "arquivo"
             if os.path.splitext(nome)[1].lower() not in EXTENSOES:
-                return self._json({"erro": "use foto (jpg, png, webp) ou vídeo (mp4, mov)"}, 400)
+                return self._json({"erro": "use foto (jpg, png, webp), vídeo (mp4, mov) ou música (mp3, wav, m4a)"}, 400)
             pasta = os.path.join(self.pasta, "insertos")
             os.makedirs(pasta, exist_ok=True)
             destino, n = os.path.join(pasta, nome), 2
@@ -182,6 +186,11 @@ class Estudio(BaseHTTPRequestHandler):
                     f.write(bloco)
                     falta -= len(bloco)
             return self._json({"ok": True, "nome": os.path.basename(destino)})
+        if rota == "/api/cor-auto":
+            from . import cor as C
+            proj = P.carregar(self.pasta)
+            r = C.analisar(proj["video"])
+            return self._json(r)
         if rota == "/api/fontes":
             from . import fontes as F
             q = parse_qs(urlparse(self.path).query)
@@ -218,8 +227,36 @@ class Estudio(BaseHTTPRequestHandler):
         self.send_error(HTTPStatus.NOT_FOUND)
 
 
-EXTENSOES = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".mp4", ".mov", ".m4v", ".webm"}
+EXTENSOES = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".mp4", ".mov", ".m4v", ".webm",
+             ".mp3", ".wav", ".m4a", ".aac", ".ogg"}
 VIDEOS = {".mp4", ".mov", ".m4v", ".webm"}
+AUDIOS = {".mp3", ".wav", ".m4a", ".aac", ".ogg"}
+PASTA_SONS = os.path.join(RAIZ, "sons")
+
+
+def forma_de_onda(pasta, por_segundo=50):
+    """Picos do áudio original (50 por segundo), guardados em onda.json."""
+    cache = os.path.join(pasta, "onda.json")
+    if os.path.exists(cache):
+        with open(cache, encoding="utf-8") as f:
+            return json.load(f)
+    import struct
+    import subprocess
+    proj = P.carregar(pasta)
+    taxa = 8000
+    bruto = subprocess.run(["ffmpeg", "-v", "error", "-i", proj["video"], "-vn", "-ac", "1", "-ar", str(taxa),
+                            "-f", "s16le", "-"], capture_output=True).stdout
+    janela = taxa // por_segundo
+    n = len(bruto) // 2
+    amostras = struct.unpack(f"<{n}h", bruto[:n * 2]) if n else ()
+    picos = []
+    for i in range(0, n, janela):
+        bloco = amostras[i:i + janela]
+        picos.append(round(max((abs(x) for x in bloco), default=0) / 32768, 3))
+    dados = {"por_segundo": por_segundo, "picos": picos}
+    with open(cache, "w", encoding="utf-8") as f:
+        json.dump(dados, f)
+    return dados
 
 
 def listar_insertos(pasta):
@@ -229,7 +266,7 @@ def listar_insertos(pasta):
         for nome in sorted(os.listdir(base)):
             ext = os.path.splitext(nome)[1].lower()
             if ext in EXTENSOES:
-                itens.append({"nome": nome, "tipo": "video" if ext in VIDEOS else "imagem",
+                itens.append({"nome": nome, "tipo": "video" if ext in VIDEOS else "audio" if ext in AUDIOS else "imagem",
                               "tamanho": os.path.getsize(os.path.join(base, nome))})
     return itens
 

@@ -17,9 +17,12 @@ Comandos:
   camadas PROJETO                           lista as camadas com id, tipo e tempo
   remover PROJETO ID [ID...]                apaga camadas
   legenda PROJETO '{"cor": ...}'            muda o visual da legenda (JSON parcial)
-  estilo PROJETO classico|descolado|romantico|normal [--destaque ID] [--texto ID]
+  estilo PROJETO cool|star|basic|glow [--destaque ID] [--texto ID]
   fontes                                    lista as fontes disponíveis (ids)
   fonte "Nome no Google Fonts" | arquivo.ttf [--nome N]   instala uma fonte nova
+  cor PROJETO [--auto] [--filtro quente] [--brilho 0.05] [--contraste 1.1] ...
+  trilha PROJETO musica.mp3 [--volume 0.14] [--sem-abaixar]   música de fundo (arquivo em insertos/)
+  cortar-tempo PROJETO 12.5 14.2 [--desfazer]   corta um trecho por tempo do vídeo original
   ajustar PROJETO [--ritmo R] [--posicao 0.64] [--enquadramento ajustar] ...
   status PROJETO "mensagem" [--livre]       mostra o que o Claude está fazendo
   resumo PROJETO                            números do projeto
@@ -213,8 +216,8 @@ def cmd_camada(a):
                 existente[k] = v
         c = existente
     else:
-        if c.get("tipo") not in ("impacto", "imagem", "video", "desenho", "texto"):
-            sys.exit("tipo precisa ser impacto, imagem, video, desenho ou texto")
+        if c.get("tipo") not in ("impacto", "imagem", "video", "desenho", "texto", "efeito", "som"):
+            sys.exit("tipo precisa ser impacto, imagem, video, desenho, texto, efeito ou som")
         c.setdefault("id", c["tipo"][:3] + "".join(random.choice("abcdefghijkmnpqrstuvwxyz23456789") for _ in range(5)))
         if c.get("palavra") is None and c.get("ini") is None:
             c["ini"] = 0
@@ -279,6 +282,53 @@ def cmd_estilo(a):
         f.update(texto=a.texto, kit="personalizado")
     P.salvar(a.projeto, proj)
     print(f"destaque={f['destaque']} texto={f['texto']}")
+
+
+def cmd_cor(a):
+    from . import cor as C
+    proj = P.carregar(a.projeto)
+    c = proj["cor"]
+    if a.auto:
+        c.update(C.analisar(proj["video"]), auto=True)
+    if a.sem_auto:
+        c["auto"] = False
+    if a.filtro:
+        c.update(C.FILTROS[a.filtro], filtro=a.filtro)
+    for campo in ("brilho", "contraste", "saturacao", "temperatura"):
+        v = getattr(a, campo)
+        if v is not None:
+            c[campo] = v
+            c["filtro"] = "personalizado"
+    P.salvar(a.projeto, proj)
+    print(json.dumps(c, ensure_ascii=False))
+
+
+def cmd_trilha(a):
+    proj = P.carregar(a.projeto)
+    t = proj["trilha"]
+    if a.arquivo is not None:
+        t["arquivo"] = a.arquivo or None
+    if a.volume is not None:
+        t["volume"] = a.volume
+    if a.sem_abaixar:
+        t["abaixar_na_fala"] = False
+    P.salvar(a.projeto, proj)
+    print(json.dumps(t, ensure_ascii=False))
+
+
+def cmd_cortar_tempo(a):
+    proj = P.carregar(a.projeto)
+    lista = proj.setdefault("cortes_tempo", [])
+    if a.desfazer:
+        proj["cortes_tempo"] = [c for c in lista if not (c["ini"] <= a.ini <= c["fim"])]
+    else:
+        lista.append({"ini": a.ini, "fim": a.fim})
+        for p in proj["palavras"]:
+            meio = (p["ini"] + p["fim"]) / 2
+            if a.ini <= meio <= a.fim and not p.get("cortada"):
+                p.update(cortada=True, motivo="linha do tempo", origem="claude")
+    P.salvar(a.projeto, proj)
+    print(f"{len(proj['cortes_tempo'])} trechos cortados por tempo")
 
 
 def cmd_ajustar(a):
@@ -361,6 +411,16 @@ def main(argv=None):
     s = sub.add_parser("fontes"); s.set_defaults(f=cmd_fontes)
     s = sub.add_parser("estilo"); s.add_argument("projeto"); s.add_argument("estilo", nargs="?")
     s.add_argument("--destaque"); s.add_argument("--texto"); s.set_defaults(f=cmd_estilo)
+    s = sub.add_parser("cor"); s.add_argument("projeto"); s.add_argument("--auto", action="store_true")
+    s.add_argument("--sem-auto", action="store_true"); s.add_argument("--filtro", choices=["nenhum", "quente", "frio", "vivo", "suave", "filme", "pb"])
+    for campo in ("brilho", "contraste", "saturacao", "temperatura"):
+        s.add_argument("--" + campo, type=float)
+    s.set_defaults(f=cmd_cor)
+    s = sub.add_parser("trilha"); s.add_argument("projeto"); s.add_argument("arquivo", nargs="?")
+    s.add_argument("--volume", type=float); s.add_argument("--sem-abaixar", action="store_true"); s.set_defaults(f=cmd_trilha)
+    s = sub.add_parser("cortar-tempo"); s.add_argument("projeto"); s.add_argument("ini", type=float)
+    s.add_argument("fim", type=float, nargs="?", default=0); s.add_argument("--desfazer", action="store_true")
+    s.set_defaults(f=cmd_cortar_tempo)
     s = sub.add_parser("ajustar"); s.add_argument("projeto")
     s.add_argument("--ritmo", choices=list(P.RITMOS)); s.add_argument("--pausa-max", type=float)
     s.add_argument("--folga", type=float); s.add_argument("--posicao", type=float)
