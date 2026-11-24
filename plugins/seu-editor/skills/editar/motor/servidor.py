@@ -130,6 +130,9 @@ class Estudio(BaseHTTPRequestHandler):
             return self._json(E.estilos_para_interface(self.dados))
         if rota.startswith("/fontes-pessoa/"):
             return self._estatico(os.path.join(self.dados, "fontes"), rota[15:])
+        if rota == "/api/versao":
+            from . import versao as V
+            return self._json(V.checar(self.dados))
         if rota == "/api/estado":
             return self._json({"estado": P.ler_estado(self.pasta), "mtime": P.mtime(self.pasta)})
         if rota == "/api/exportados":

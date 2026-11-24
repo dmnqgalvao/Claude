@@ -637,6 +637,11 @@ def cmd_regravacoes(a):
     P.salvar(a.projeto, proj)
 
 
+def cmd_versao(a):
+    from . import versao as V
+    print(json.dumps(V.checar(dados_dir(), forcar=a.agora), ensure_ascii=False))
+
+
 def cmd_revisar(a):
     from . import regravacoes as R
     proj = P.carregar(a.projeto)
@@ -814,6 +819,7 @@ def main(argv=None):
     s.add_argument("--sons-auto", choices=["sim", "nao"])
     s.add_argument("--enquadramento", choices=["preencher", "ajustar"])
     s.add_argument("--sem-legenda", action="store_true"); s.set_defaults(f=cmd_ajustar)
+    s = sub.add_parser("versao"); s.add_argument("--agora", action="store_true"); s.set_defaults(f=cmd_versao)
     s = sub.add_parser("revisar"); s.add_argument("projeto"); s.add_argument("--so-avisos", action="store_true")
     s.set_defaults(f=cmd_revisar)
     s = sub.add_parser("rosto"); s.add_argument("projeto"); s.add_argument("--refazer", action="store_true")

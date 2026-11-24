@@ -454,3 +454,12 @@ input[type=text] { border: 1px solid var(--linha); border-radius: 14px; padding:
 .modelo-g .ft { position: absolute; width: 18px; height: 22px; background: #f7f7f7; border-radius: 2px; box-shadow: 0 2px 4px rgba(0,0,0,.3); }
 .modelo-g .ic { position: absolute; color: #fb76b2; font-size: 12px; z-index: 2; }
 .modelo-g small { display: block; margin-top: 5px; font-size: 11px; line-height: 1.15; }
+
+/* aviso de versão nova */
+.faixa-versao { margin: 12px 40px 0; padding: 12px 18px; border-radius: 18px; background: var(--rosa-claro, #ffe3f0);
+  color: var(--grafite, #2b2b2b); font-size: 14px; line-height: 1.45; display: flex; gap: 14px; align-items: flex-start; }
+.faixa-versao[hidden] { display: none; }
+.faixa-versao b { color: var(--rosa-forte, #c2366f); }
+.faixa-versao ul { margin: 4px 0 0; padding-left: 18px; }
+.faixa-versao code { background: #fff; padding: 2px 8px; border-radius: 999px; font-size: 13px; }
+.faixa-versao .fechar { margin-left: auto; border: 0; background: none; font-size: 20px; cursor: pointer; color: inherit; }

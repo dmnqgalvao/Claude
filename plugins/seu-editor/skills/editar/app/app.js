@@ -1709,4 +1709,21 @@ async function vigiar() {
   addEventListener("resize", () => { desenharQuadro(); desenharOnda(); });
   requestAnimationFrame(laco);
   vigiar();
+  avisarVersao();
 })();
+
+/* aviso de versão nova: some até sair outra versão depois que a pessoa fecha */
+async function avisarVersao() {
+  const r = await api("GET", "/api/versao"); const v = r.dados;
+  if (!r.ok || !v?.nova) return;
+  let fechada = null; try { fechada = localStorage.getItem("seu-editor-versao-fechada"); } catch {}
+  if (fechada === v.remota) return;
+  const f = $("#faixa-versao");
+  const itens = (v.novidades || []).flatMap(n => n.itens || []).slice(0, 6);
+  f.innerHTML = `<div><b>tem versão nova do seu editor (${esc(v.remota)})</b>. você está na ${esc(v.local)}.
+    ${itens.length ? `<ul>${itens.map(i => `<li>${esc(i)}</li>`).join("")}</ul>` : ""}
+    pra atualizar, peça numa sessão do claude: <code>${esc(v.comando)}</code> e depois abra uma sessão nova.</div>
+    <button class="fechar" title="fechar">×</button>`;
+  f.hidden = false;
+  f.querySelector(".fechar").onclick = () => { f.hidden = true; try { localStorage.setItem("seu-editor-versao-fechada", v.remota); } catch {} };
+}

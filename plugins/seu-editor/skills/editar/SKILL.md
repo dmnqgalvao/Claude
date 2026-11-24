@@ -38,6 +38,14 @@ A última linha é um JSON. Com `"ok": true`, guarde `"python"` como `PY`.
   100 MB que desenha as camadas). Avise antes.
 - No Windows, se `python3` não existir, tente `py -3`.
 
+**Versão nova.** Logo depois de preparar, rode `ed versao`. Se vier `"nova": true`, avise a
+pessoa em uma ou duas linhas, antes de começar a editar: qual versão saiu, o que mudou (os
+`novidades`) e que pra atualizar é só pedir "atualiza o plugin seu-editor do marketplace
+domigalvao" e abrir uma sessão nova. Siga editando com a versão atual, sem esperar resposta.
+Se ela pedir pra atualizar, rode `claude plugin marketplace update domigalvao` e
+`claude plugin update seu-editor@domigalvao` no terminal (ou o equivalente que funcionar ali) e
+lembre de abrir uma sessão nova.
+
 ## 2. Entender o pedido e achar o vídeo
 
 A pessoa escreve do jeito dela, sem comando e sem caminho. Tire do pedido:
