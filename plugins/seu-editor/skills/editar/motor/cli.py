@@ -140,6 +140,8 @@ def cmd_novo(a):
     proj = P.projeto_padrao(arquivos, nome, marca_global())
     if a.narracao:
         proj["ajustes"]["zoom_cortes"]["ativo"] = False
+        # legenda do narrado: palavra por palavra, empilhada, limpando a cada troca de imagem
+        proj["legenda"]["visual"]["formato"] = "empilhada"
         # narração gravada em vídeo (celular, Drive): vale só o som, a imagem vem dos insertos
         for arq in proj["arquivos"]:
             arq["tipo"] = "audio"

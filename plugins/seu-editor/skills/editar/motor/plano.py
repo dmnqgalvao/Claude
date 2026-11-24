@@ -219,6 +219,73 @@ def zoom_nos_cortes(segs, cfg, palavras=()):
         s["zoom"] = nivel.get(i, 1.0)
 
 
+# lugares das pilhas da legenda empilhada: (x, y do topo, alinhamento), um por troca de imagem
+LUGARES_PILHA = [(.1, .22, "left"), (.5, .38, "center"), (.9, .28, "right"), (.1, .5, "left"),
+                 (.5, .2, "center"), (.9, .48, "right"), (.5, .55, "center")]
+
+
+def blocos_empilhados(mantidas, segs, proj, total, visual):
+    """Legenda empilhada (vídeo narrado): cada palavra entra quando é falada, uma por linha,
+    e a pilha limpa quando a imagem troca (corte ou inserto novo). Cada pilha fica num
+    lugar diferente da tela. Destaques alternam entre palavra grande e palavra na caixa."""
+    das_camadas = [_ini_out_camada(c, proj, segs) for c in proj.get("camadas", [])
+                   if c.get("tipo") in ("imagem", "video") and c.get("modo") in ("tela", "metade")
+                   and not c.get("oculta")]
+    trocas = sorted({round(s["out"], 3) for s in segs} | {round(t, 3) for t in das_camadas if t is not None})
+
+    def plano_de(t):
+        k = 0
+        for i, x in enumerate(trocas):
+            if x <= t + 0.02:
+                k = i
+        return k
+
+    maximo = int(visual.get("palavras_pilha", 5))
+    blocos, atual = [], []
+    for w in mantidas:
+        if not w["t"]:
+            continue
+        if atual and (plano_de(w["ini_out"]) != plano_de(atual[0]["ini_out"]) or len(atual) >= maximo
+                      or w["ini_out"] - atual[-1]["fim_out"] > 0.8):
+            blocos.append(atual)
+            atual = []
+        atual.append(w)
+    if atual:
+        blocos.append(atual)
+    saida, n_dest = [], 0
+    for k, b in enumerate(blocos):
+        ini = b[0]["ini_out"]
+        prox_troca = next((x for x in trocas if x > b[-1]["ini_out"] + 0.02), total)
+        prox_bloco = blocos[k + 1][0]["ini_out"] if k + 1 < len(blocos) else total
+        fim = max(b[-1]["fim_out"] + 0.15, min(prox_troca, prox_bloco, b[-1]["fim_out"] + 1.2))
+        fim = min(fim, prox_bloco, total)
+        palavras = []
+        for w in b:
+            tipo = None
+            if w["destaque"]:
+                tipo = "grande" if n_dest % 2 == 0 else "caixa"
+                n_dest += 1
+            palavras.append({"i": w["i"], "t": w["t"], "destaque": w["destaque"], "tipo": tipo,
+                             "ini_out": w["ini_out"], "fim_out": w["fim_out"],
+                             "ini_src": w["ini_src"], "fim_src": w["fim_src"]})
+        x, y, alin = LUGARES_PILHA[k % len(LUGARES_PILHA)]
+        saida.append({"ini_out": round(ini, 3), "fim_out": round(fim, 3), "palavras": palavras,
+                      "empilhada": True, "x": x, "y": y, "alinhamento": alin, "destaque": False})
+    return saida
+
+
+def _ini_out_camada(c, proj, segs):
+    if c.get("ini") is not None:
+        return float(c["ini"])
+    pal = proj.get("palavras", [])
+    i = c.get("palavra")
+    if i is None or i >= len(pal):
+        return None
+    p = pal[i]
+    si = _segmento_de(p, segs)
+    return _para_saida(p["ini"], segs, si) if si is not None else None
+
+
 def aplicar_foco(segs, proj):
     """Recorte de cada plano fechado: centraliza o rosto (olhos um pouco acima do meio)
     sem sair da imagem. Sem rosto conhecido, usa o centro com o terço de cima."""
@@ -325,7 +392,11 @@ def montar_plano(proj):
     if atual:
         blocos.append(atual)
 
-    saida_blocos = []
+    if visual.get("formato") == "empilhada":
+        saida_blocos = blocos_empilhados(mantidas, segs, proj, total, visual)
+        blocos = []
+    else:
+        saida_blocos = []
     for k, b in enumerate(blocos):
         ini = b[0]["ini_out"]
         fim = b[-1]["fim_out"]

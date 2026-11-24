@@ -142,6 +142,55 @@
     };
   }
 
+  /* -------------------------------------------------------- legenda empilhada (vídeo narrado)
+     cada palavra entra quando é falada, letra por letra em ~0,1 s, uma por linha; a pilha
+     limpa quando a imagem troca. Destaque: "grande" (cor clara, maior, fonte de destaque)
+     ou "caixa" (caixa escura com texto claro). */
+  function itemEmpilhada(b, v0, ctx) {
+    const claro = v0.cor_destaque && v0.cor_destaque.toUpperCase() !== "#FFFFFF" ? v0.cor_destaque : "#F5E4B8";
+    const caixa = v0.cor_caixa || "#502607";
+    const fd = fonteDe({ ...v0, fonte: v0.fonte_destaque || v0.fonte });
+    const chave = "emp" + hash(JSON.stringify(v0) + b.ini_out + b.palavras.map(w => w.t + (w.tipo || "")).join(" ") + b.x + b.y);
+    return {
+      k: chave, z: 90,
+      criar() {
+        const el = document.createElement("div");
+        el.className = "m-pilha";
+        el.style.cssText = `display:flex;flex-direction:column;gap:${Math.round(v0.tamanho * .06)}px;width:${W * .8}px;` +
+          `align-items:${b.alinhamento === "left" ? "flex-start" : b.alinhamento === "right" ? "flex-end" : "center"}`;
+        b.palavras.forEach(w => {
+          const d = document.createElement("div");
+          aplicarVisual(d, { ...v0, fundo: "nenhum" }, w.tipo === "grande" ? (v0.escala_destaque || 1.8) : 1);
+          d.style.lineHeight = "1.02"; d.style.whiteSpace = "nowrap";
+          if (w.tipo) { d.style.fontFamily = fd.familia; d.style.fontWeight = Math.max(700, fd.peso); }
+          if (w.tipo === "grande") d.style.color = claro;
+          if (w.tipo === "caixa") {
+            d.style.color = claro; d.style.background = caixa; d.style.padding = ".08em .32em .12em";
+            d.style.webkitTextStroke = "0"; d.style.textShadow = "none";
+          }
+          d.dataset.t = w.t;
+          el.appendChild(d);
+        });
+        return el;
+      },
+      atualizar(el, t) {
+        const x = b.x * W, y = b.y * H;
+        const desloca = b.alinhamento === "left" ? "0" : b.alinhamento === "right" ? "-100%" : "-50%";
+        el.style.left = x + "px"; el.style.top = y + "px";
+        el.style.transform = `translate(${desloca}, 0)`;
+        let sig = "";
+        [...el.children].forEach((d, j) => {
+          const w = b.palavras[j];
+          const p = c01((t - w.ini_out) / .1);
+          const n = t < w.ini_out ? 0 : Math.max(1, Math.ceil(w.t.length * p));
+          if (d._n !== n) { d._n = n; d.textContent = w.t.slice(0, n); d.style.display = n ? "" : "none"; }
+          sig += n + ",";
+        });
+        return sig;
+      },
+    };
+  }
+
   /* -------------------------------------------------------- gancho escrito (modelos de abertura)
      caixa: caixa colorida | texto: só texto, com etiqueta opcional | rosto: na frente do rosto
      imagens: linha pequena + título, fotos atrás da pessoa (as fotos são camadas do plano)
@@ -626,7 +675,7 @@
     if (ctx.camada === "atras") return lista;
     if (plano.gancho && t < plano.gancho.fim_out) lista.push(itemGancho(plano.gancho, plano.gancho_visual, ctx));
     const k = plano.blocos.findIndex(b => t >= b.ini_out && t < b.fim_out);
-    if (k >= 0) lista.push(itemLegenda(plano.blocos[k], k, plano.legenda, ctx));
+    if (k >= 0) lista.push(plano.blocos[k].empilhada ? itemEmpilhada(plano.blocos[k], plano.legenda, ctx) : itemLegenda(plano.blocos[k], k, plano.legenda, ctx));
     return lista;
   }
 
@@ -650,6 +699,7 @@
   async function preparar(ctx) {
     const vis = [ctx.plano.legenda, ctx.plano.gancho_visual, ...(ctx.plano.camadas || []).map(c => c.visual).filter(Boolean)];
     for (const f of [ctx.plano.gancho_fonte_texto, ctx.plano.gancho_fonte_destaque2]) if (f) vis.push({ fonte: f }, { fonte: f, italico: true });
+    for (const f of [ctx.plano.legenda?.fonte_destaque, ctx.plano.legenda?.fonte_destaque2]) if (f) vis.push({ fonte: f });
     const pedidos = vis.map(v => { const f = fonteDe(v); return `${v.italico ? "italic " : ""}${f.peso} 40px ${f.familia}`; });
     await Promise.all([...new Set(pedidos)].map(p => document.fonts.load(p).catch(() => {})));
     const imgs = (ctx.plano.camadas || []).filter(c => c.tipo === "imagem").map(c => {

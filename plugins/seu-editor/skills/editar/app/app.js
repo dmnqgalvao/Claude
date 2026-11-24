@@ -498,6 +498,7 @@ function desenharControles() {
   $("#l-pos").value = l.posicao; $("#o-lpos").textContent = Math.round(l.posicao * 100) + "%";
   $$("#l-ativa-modo .pilula").forEach(b => b.classList.toggle("ativa", b.dataset.v === (lv.modo_ativa || "cor")));
   $$("#l-anim .pilula").forEach(b => b.classList.toggle("ativa", b.dataset.v === (lv.animacao || "pop")));
+  $$("#l-formato .pilula").forEach(b => b.classList.toggle("ativa", b.dataset.v === (lv.formato || "corrida")));
   $("#l-pont").checked = l.sem_pontuacao !== false;
 
   $$("#enquadramento .pilula").forEach(b => b.classList.toggle("ativa", b.dataset.enq === pj.formato.enquadramento));
@@ -1582,6 +1583,7 @@ $("#l-ativa").onchange = e => { S.proj.legenda.ativa = e.target.checked; mudou()
 $("#l-pal").oninput = e => { S.proj.legenda.visual.palavras = +e.target.value; mudou(); };
 $("#l-pos").oninput = e => { S.proj.legenda.posicao = +e.target.value; mudou(); };
 $("#l-ativa-modo").onclick = e => { const v = e.target.dataset.v; if (!v) return; S.proj.legenda.visual.modo_ativa = v; mudou(); };
+$("#l-formato").onclick = e => { const v = e.target.dataset.v; if (!v) return; S.proj.legenda.visual.formato = v; mudou(); };
 $("#l-anim").onclick = e => { const v = e.target.dataset.v; if (!v) return; S.proj.legenda.visual.animacao = v; mudou(); };
 $("#l-pont").onchange = e => { S.proj.legenda.sem_pontuacao = e.target.checked; mudou(); };
 $("#enquadramento").onclick = e => { const v = e.target.dataset.enq; if (!v) return; S.proj.formato.enquadramento = v; mudou(); };

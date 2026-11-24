@@ -104,7 +104,12 @@ ed novo fotos/*.jpg broll.mp4 --narracao fala.m4a --nome praia # narração: ins
   ```
   O jeito da referência de narrado: 100% imagem, um corte a cada ~1 s no começo de uma
   palavra (no meio da frase também), tela cheia, sem zoom, cortes secos, pausas da narração
-  cortadas. Clipes repetidos continuam de onde pararam, sem mostrar a mesma imagem duas
+  cortadas. A legenda do narrado já nasce **empilhada**: cada palavra entra quando é
+  falada, uma por linha, e a pilha limpa quando a imagem troca, cada vez num canto da tela.
+  Marque destaques (`ed destacar`) em ~1 palavra a cada 3 s: eles alternam entre palavra
+  grande em cor clara e palavra numa caixa escura (`cor_destaque` e `cor_caixa` na
+  legenda). Fora do narrado também dá: `ed legenda "$PRJ" '{"formato":"empilhada"}'`
+  (`"corrida"` volta ao normal; `"palavras_pilha"` muda o máximo por pilha, padrão 5). Clipes repetidos continuam de onde pararam, sem mostrar a mesma imagem duas
   vezes. Use `--modo metade`, `--de 10 --ate 30` pra um trecho só. Depois de preencher,
   troque o inserto de cada trecho pra combinar com o que a narração diz (leia `camadas` e
   o `texto`): a imagem tem que ilustrar a frase.
