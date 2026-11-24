@@ -94,6 +94,11 @@ class Estudio(BaseHTTPRequestHandler):
         if rota == "/video":
             proj = P.carregar(self.pasta)
             return self._arquivo(proj["video"])
+        if rota.startswith("/cores/"):
+            from .cor import PASTA_CORES
+            return self._estatico(PASTA_CORES, rota[7:])
+        if rota.startswith("/cores-pessoa/"):
+            return self._estatico(os.path.join(self.dados, "cores"), rota[14:])
         if rota.startswith("/sons/"):
             return self._estatico(PASTA_SONS, rota[6:])
         if rota == "/api/onda":
@@ -245,6 +250,18 @@ class Estudio(BaseHTTPRequestHandler):
                 proj["cor"].update(C.analisar(proj["video"]), auto=True)
             P.salvar(self.pasta, proj)
             return self._json({"ok": True})
+        if rota == "/api/cores":
+            q = parse_qs(urlparse(self.path).query)
+            nome = os.path.basename(unquote(q.get("nome", [""])[0]))
+            nome = re.sub(r"[^\w\-]+", "-", os.path.splitext(nome)[0].lower()).strip("-") or "meu-filtro"
+            corpo = self.rfile.read(int(self.headers.get("Content-Length") or 0))
+            if b"LUT_3D_SIZE" not in corpo[:4000]:
+                return self._json({"erro": "envie um arquivo .cube de LUT 3D"}, 400)
+            pasta = os.path.join(self.dados, "cores")
+            os.makedirs(pasta, exist_ok=True)
+            with open(os.path.join(pasta, nome + ".cube"), "wb") as f:
+                f.write(corpo)
+            return self._json({"ok": True, "id": nome})
         if rota == "/api/cor-auto":
             from . import cor as C
             proj = P.carregar(self.pasta)

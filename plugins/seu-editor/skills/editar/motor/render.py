@@ -86,6 +86,23 @@ def _filtro_cor(cor):
     return f"curves=r='{pts(cor['r'])}':g='{pts(cor['g'])}':b='{pts(cor['b'])}',{sat}"
 
 
+def _hdr(video):
+    """Vídeo de iPhone em HDR (HLG ou PQ) precisa virar SDR antes da cor."""
+    try:
+        out = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries",
+                              "stream=color_transfer", "-of", "csv=p=0", video], capture_output=True, text=True).stdout
+        return out.strip() in ("arib-std-b67", "smpte2084")
+    except Exception:
+        return False
+
+
+def _tem_zscale():
+    try:
+        return " zscale " in subprocess.run(["ffmpeg", "-hide_banner", "-filters"], capture_output=True, text=True).stdout
+    except Exception:
+        return False
+
+
 def montar_filtro(plano, proj, largura, altura, fps, com_audio, videos, idx_quadros, sons=(), trilha_idx=None,
                   base_idx=None, atras_seqs=(), recortes=(), so_base=False):
     """videos: [(entrada, camada)]; sons: [(entrada, evento)]; idx_quadros: entrada dos quadros transparentes.
@@ -119,6 +136,12 @@ def montar_filtro(plano, proj, largura, altura, fps, com_audio, videos, idx_quad
     else:
         partes.append("".join(entradas) + f"concat=n={len(segs)}:v=1:a={1 if com_audio else 0}"
                       + ("[vc][ac]" if com_audio else "[vc]"))
+    if base_idx is None and _hdr(proj["video"]) and _tem_zscale():
+        partes.append("[vc]zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,tonemap=tonemap=hable:desat=0,"
+                      "zscale=t=bt709:m=bt709:r=tv,format=yuv420p[vsdr]")
+        trocar = True
+    else:
+        trocar = False
     if base_idx is not None:
         pass
     elif proj.get("formato", {}).get("enquadramento") == "ajustar":
@@ -131,12 +154,28 @@ def montar_filtro(plano, proj, largura, altura, fps, com_audio, videos, idx_quad
     else:
         partes.append(f"[vc]scale={largura}:{altura}:force_original_aspect_ratio=increase,"
                       f"crop={largura}:{altura},setsar=1,fps={fps}[vb]")
+    if trocar:
+        for n in range(len(partes) - 1, -1, -1):
+            if partes[n].startswith("[vc]split") or partes[n].startswith("[vc]scale"):
+                partes[n] = "[vsdr]" + partes[n][4:]
+                break
     if base_idx is None:
         cor = plano.get("cor") or {}
         nitidez = f"unsharp=5:5:{cor['nitidez']:.2f}:5:5:0," if cor.get("nitidez") else ""
         pb = "".join(f"hue=s=0:enable='between(t,{c['ini_out']:.3f},{c['fim_out']:.3f})',"
                      for c in plano.get("camadas", []) if c.get("tipo") == "efeito" and c.get("efeito") == "pb")
-        partes.append(f"[vb]{_filtro_cor(cor)}{nitidez}{pb}{_expr_efeitos(plano.get('camadas', []), largura, altura)}"
+        entrada_cor = "vb"
+        lut = cor.get("lut")
+        if lut and lut.get("arquivo"):
+            arq = f"_cores/{os.path.basename(lut['arquivo'])}"
+            k = float(lut.get("intensidade", 1))
+            if k >= 0.999:
+                partes.append(f"[vb]format=gbrp,lut3d=file={arq}:interp=tetrahedral,format=yuv420p[vlut]")
+            else:
+                partes.append(f"[vb]format=gbrp,split[vl0][vl1];[vl1]lut3d=file={arq}:interp=tetrahedral[vl2];"
+                              f"[vl0][vl2]blend=all_expr='A*{1 - k:.3f}+B*{k:.3f}',format=yuv420p[vlut]")
+            entrada_cor = "vlut"
+        partes.append(f"[{entrada_cor}]{_filtro_cor(cor)}{nitidez}{pb}{_expr_efeitos(plano.get('camadas', []), largura, altura)}"
                       f"setsar=1,format=yuv420p[b0]")
     if so_base:
         return ";\n".join(partes)
@@ -255,6 +294,11 @@ def exportar(pasta, previa=False, log=lambda *_: None):
     rotulo = "gerando a prévia" if previa else "exportando o vídeo final"
     P.escrever_estado(pasta, tarefa="exportando", progresso=0.0, mensagem=f"{rotulo}: preparando", erro=None)
     opc_filtro = (lambda arq: ["-/filter_complex", arq]) if _versao_ffmpeg() >= 7 else (lambda arq: ["-filter_complex_script", arq])
+
+    lut = (plano.get("cor") or {}).get("lut")
+    if lut and lut.get("arquivo") and os.path.exists(lut["arquivo"]):
+        os.makedirs(os.path.join(pasta, "_cores"), exist_ok=True)
+        shutil.copy(lut["arquivo"], os.path.join(pasta, "_cores", os.path.basename(lut["arquivo"])))
 
     # camadas atrás da pessoa: monta a base primeiro, recorta a pessoa nela
     faixas = R.faixas_atras(plano)

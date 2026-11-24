@@ -50,8 +50,8 @@ def projeto_padrao(video, nome, marca=None):
         "fontes": dict(marca.get("fontes") or {"kit": E.KIT_PADRAO["id"], "destaque": E.KIT_PADRAO["destaque"],
                                               "texto": E.KIT_PADRAO["texto"]}),
         "formato": {"enquadramento": "preencher", "volume": True},
-        "cor": {"auto": False, "ganhos": [1.0, 1.0, 1.0], "look": "dourado", "intensidade": 0.8, "brilho": 0.0,
-                "contraste": 1.0, "saturacao": 1.0, "temperatura": 0.0, "nitidez": 0.5},
+        "cor": {"auto": False, "ganhos": [1.0, 1.0, 1.0], "look": "quente-suave", "intensidade": 1.0, "brilho": 0.0,
+                "contraste": 1.0, "saturacao": 1.0, "temperatura": 0.0, "nitidez": 0.4},
         "termos": marca.get("termos", []),
     })
 
@@ -87,7 +87,7 @@ def normalizar(proj):
         # projetos antigos: o filtro vira look, e os valores do filtro antigo saem dos ajustes
         velho = cor.get("filtro", "nenhum")
         cor["look"] = {"quente": "dourado", "quente_nitido": "dourado", "vivo": "verao"}.get(velho, velho)
-        if cor["look"] not in ("nenhum", "natural", "dourado", "pessego", "verao", "frio", "cinema", "filme", "suave", "pb"):
+        if cor["look"] not in ("nenhum", "natural", "dourado", "pessego", "verao", "frio", "cinema", "filme", "suave", "pb"):  # noqa
             cor["look"] = "nenhum"
         if velho != "personalizado":
             cor.update(brilho=0.0, contraste=1.0, saturacao=1.0, temperatura=0.0)

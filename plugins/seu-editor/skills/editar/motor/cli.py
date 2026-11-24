@@ -520,7 +520,8 @@ def main(argv=None):
     s.add_argument("--destaque"); s.add_argument("--texto"); s.set_defaults(f=cmd_estilo)
     s = sub.add_parser("cor"); s.add_argument("projeto"); s.add_argument("--auto", action="store_true")
     s.add_argument("--sem-auto", action="store_true")
-    s.add_argument("--filtro", choices=["nenhum", "natural", "dourado", "pessego", "verao", "frio", "cinema", "filme", "suave", "pb", "quente", "vivo"])
+    s.add_argument("--filtro", help="quente-suave, dourado-quente, pessego-vibrante, doc-contraste, neutro-limpo, "
+                   "ou natural, dourado, pessego, verao, frio, cinema, filme, suave, pb, nenhum")
     s.add_argument("--intensidade", type=float); s.add_argument("--nitidez", type=float)
     for campo in ("brilho", "contraste", "saturacao", "temperatura"):
         s.add_argument("--" + campo, type=float)

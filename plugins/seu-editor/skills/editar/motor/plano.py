@@ -31,6 +31,10 @@ def cor_final(cor):
     cv = C.curvas(cor)
     identidade = [round(i / 16, 4) for i in range(17)]
     cv["nitidez"] = round(float((cor or {}).get("nitidez", 0) or 0), 3)
+    from . import projeto as P
+    lut = C.luts(P.dados_dir()).get((cor or {}).get("look") or "")
+    cv["lut"] = ({"id": cor["look"], "arquivo": lut["arquivo"], "url": lut["url"],
+                  "intensidade": max(0.0, min(1.0, float(cor.get("intensidade", 1.0))))} if lut else None)
     cv["neutra"] = (cv["r"] == identidade and cv["g"] == identidade and cv["b"] == identidade
                     and abs(cv["saturacao"] - 1) < 1e-3)
     return cv
@@ -45,7 +49,7 @@ def calcular_segmentos(proj):
     duracao = float(proj.get("info", {}).get("duracao", 0)) or (palavras[-1]["fim"] + 1 if palavras else 0)
 
     if not palavras:
-        return [{"ini": 0.0, "fim": duracao, "out": 0.0}] if duracao else []
+        return [{"ini": 0.0, "fim": duracao, "out": 0.0, "vel": 1.0, "zoom": 1.0}] if duracao else []
 
     segs = []
     atual = None

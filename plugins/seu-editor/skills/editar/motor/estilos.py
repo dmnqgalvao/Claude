@@ -190,13 +190,13 @@ def estilos_para_interface(dados=None):
         "fontes": todas_as_fontes(dados), "kits": KITS, "paleta": PALETA_PADRAO,
         "visual_padrao": VISUAL_PADRAO, "legenda_padrao": LEGENDA_PADRAO, "gancho_padrao": GANCHO_PADRAO,
         "impacto": IMPACTO, "textos": TEXTOS, "cascata": CASCATA, "desenhos": DESENHOS, "entradas": ENTRADAS,
-        "filtros_cor": _filtros_cor(), "sons": SONS,
+        "filtros_cor": _filtros_cor(dados), "sons": SONS,
     }
 
 
 SONS = {"whoosh": "whoosh", "pop": "pop", "ding": "ding", "clique": "clique", "impacto": "impacto", "subida": "subida"}
 
 
-def _filtros_cor():
+def _filtros_cor(dados=None):
     from .cor import looks_para_interface
-    return looks_para_interface()
+    return looks_para_interface(dados)

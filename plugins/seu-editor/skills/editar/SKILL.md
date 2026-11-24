@@ -174,17 +174,25 @@ ed camada "$PRJ" '{"id":"imp4k2xz","som":"pop"}'
 Trilha de fundo: a música fica em `insertos/` e abaixa sozinha quando a pessoa fala.
 `ed trilha "$PRJ" musica.mp3 --volume 0.14` (`--sem-abaixar` desliga o abaixamento).
 
-**Cor.** `ed cor "$PRJ" --auto` acerta luz e balanço de branco olhando o vídeo (rode em
-todo vídeo gravado com luz de casa). Por cima entra um filtro com curva de tons e cor
-separada pra sombras e luzes: `--filtro dourado` (luz de fim de tarde, o padrão),
-`pessego` (rosado e suave), `verao` (quente e saturado), `frio` (azulado sem deixar a pele
-cinza), `cinema` (sombra azul-esverdeada, pele quente), `filme` (preto desbotado, cor
-contida), `suave` (pouco contraste, claro), `natural` (só dá profundidade), `pb`, `nenhum`.
-`--intensidade 0.7` dosa o filtro (0 a 1). Ajustes finos por cima: `--temperatura 0.3`
-(-1 a 1), `--brilho 0.03`, `--contraste 1.1`, `--saturacao 1.1`, `--nitidez 0.5`.
-Combine o filtro com o clima: dica e especialista em `natural` ou `dourado` a 60%-80%,
-lugar e desejo em `dourado` ou `verao`, relato emocional em `filme` ou `pessego`, tecnologia
-e esporte em `frio` ou `cinema`.
+**Cor.** Os estilos de cor da pessoa foram medidos nas edições dela no CapCut e viraram
+filtros `.cube` (LUT 3D), aplicados igual na prévia e no vídeo final:
+- `quente-suave` (o padrão): quase natural, esquenta a pele sem amarelar a imagem. Pra
+  especialista falando, vídeo de autoridade e publi em que a cor do produto precisa ser fiel.
+- `dourado-quente` (se estiver instalado): o mais quente, luz amarela e pele bronzeada,
+  "fim de tarde". Pra fala sentada em casa ou escritório, depoimento, conteúdo pessoal.
+- `pessego-vibrante`: o mais colorido, pele rosada, escurece e assenta o preto. Pra dica
+  e nicho com cenário claro e lavado. Com roupas ou objetos muito vermelhos, use
+  intensidade 0.6 a 0.8, senão o vermelho puxa pro laranja.
+- `doc-contraste` (documentário): preto bem fundo e luz amarelada. Pra muito b-roll,
+  fotos de arquivo e prova esportiva.
+- `frio` (frio limpo) e `cinema`: os dois que não esquentam a luz. Frio pra praia, água,
+  tecnologia e saúde; cinema (sombra azul-esverdeada, pele quente) pra história e atleta.
+`ed cor "$PRJ" --filtro pessego-vibrante --intensidade 0.8`. A pessoa sempre puxa a pele
+pro pêssego, escurece a imagem sem estourar o branco e nunca deixa a pele amarela ou
+pálida: se for ajustar à mão, vá nessa direção. Nitidez leve (0.3 a 0.5) faz o papel do
+"4K" do CapCut. `--auto` acerta luz e branco antes do filtro, pra vídeo com luz de casa.
+Vídeo de iPhone em HDR é convertido sozinho pra cor normal antes do filtro.
+Filtros novos em `.cube` entram pelo botão "enviar filtro" na aba estilo.
 
 **Corte por tempo.** Pra tirar um trecho que não tem fala (barulho, cena parada),
 `ed cortar-tempo "$PRJ" 12.5 14.2` (segundos do vídeo original). A pessoa também corta
@@ -273,7 +281,8 @@ cada palavra-chave, pop no destaque que alterna, whoosh 0,2 s antes da foto que 
 voando e ding no CTA. Volume baixo. Não coloque música no vídeo, a não ser que a pessoa
 peça (ela entra depois, no Instagram).
 
-**Cor.** Quente e nítida (filtro `dourado` a 80% com nitidez, já é o padrão). Rode `ed cor "$PRJ" --auto`
+**Cor.** Estilo `quente-suave` com nitidez leve (já é o padrão); troque pelo estilo que
+combina com o vídeo, conforme a seção Cor acima. Rode `ed cor "$PRJ" --auto`
 em vídeo gravado com luz de casa. Na confissão ou na virada da história, coloque preto e
 branco por 1 a 7 s: `{"tipo":"efeito","efeito":"pb","palavra":N,"duracao":3}`.
 

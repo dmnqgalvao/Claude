@@ -31,6 +31,7 @@
       <div class="tela-video">
         <video id="fundo" muted playsinline preload="auto"></video>
         <video id="video" playsinline preload="auto"></video>
+        <canvas id="lut-canvas"></canvas>
       </div>
       <div class="sobreposicao atras" id="sobreposicao-atras"><div class="tela" id="tela-atras"></div></div>
       <div class="tela-recorte" id="tela-recorte"></div>
@@ -234,7 +235,10 @@
       <div class="cartao">
         <div class="cabeca-cartao">
           <p class="rotulo">cor do vídeo</p>
-          <button class="btn escuro pequeno" id="cor-auto">corrigir a cor automaticamente</button>
+          <div class="acoes-cor">
+            <label class="btn borda pequeno">+ enviar filtro (.cube)<input type="file" id="enviar-cube" accept=".cube" hidden></label>
+            <button class="btn escuro pequeno" id="cor-auto">corrigir a cor automaticamente</button>
+          </div>
         </div>
         <div id="cor"></div>
       </div>

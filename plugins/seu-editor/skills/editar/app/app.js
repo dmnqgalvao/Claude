@@ -976,7 +976,7 @@ function filtroSvg(id, cv) {
   r.setAttribute("tableValues", tabela(cv.r)); g.setAttribute("tableValues", tabela(cv.g)); b.setAttribute("tableValues", tabela(cv.b));
   f.querySelector("feColorMatrix").setAttribute("values", cv.saturacao);
 }
-let quadroLooks = null;
+let quadroLooks = null, quadroLooksDados = null;
 function capturarQuadroLooks() {
   try {
     const c = document.createElement("canvas"); c.width = 180; c.height = 280;
@@ -984,6 +984,7 @@ function capturarQuadroLooks() {
     const e = Math.max(180 / vw, 280 / vh);
     g.drawImage(video, (180 - vw * e) / 2, (280 - vh * e) / 2, vw * e, vh * e);
     quadroLooks = c.toDataURL("image/jpeg", .8);
+    quadroLooksDados = g.getImageData(0, 0, 180, 280);
   } catch (err) { quadroLooks = null; }
 }
 function desenharCor() {
@@ -994,9 +995,15 @@ function desenharCor() {
   const looks = S.estilos.filtros_cor;
   const grade = document.createElement("div"); grade.className = "looks";
   for (const [k, lk] of Object.entries(looks)) {
-    filtroSvg("look-" + k, lk);
     const b = document.createElement("button"); b.className = "look" + ((c.look || "nenhum") === k ? " ativa" : "");
-    b.innerHTML = `<div class="mini-look" style="${quadroLooks ? `background-image:url(${quadroLooks});` : ""}filter:url(#look-${k})"></div>${esc(lk.nome)}`;
+    b.title = lk.descricao || "";
+    if (lk.lut) {
+      b.innerHTML = `<div class="mini-look" style="${quadroLooks ? `background-image:url(${quadroLooks});` : ""}"></div>${esc(lk.nome)}<span class="grupo-look">seu estilo</span>`;
+      miniaturaLut(k, lk.url).then(u => { if (u) b.querySelector(".mini-look").style.backgroundImage = `url(${u})`; });
+    } else {
+      filtroSvg("look-" + k, lk);
+      b.innerHTML = `<div class="mini-look" style="${quadroLooks ? `background-image:url(${quadroLooks});` : ""}filter:url(#look-${k})"></div>${esc(lk.nome)}`;
+    }
     b.onclick = () => { c.look = k; if (c.intensidade == null) c.intensidade = 1; mudou({ controles: false }); desenharCor(); };
     grade.appendChild(b);
   }
@@ -1013,6 +1020,16 @@ function desenharCor() {
   auto.classList.add("largo"); vis.appendChild(auto);
   alvo.appendChild(vis);
 }
+$("#enviar-cube").onchange = async e => {
+  const arq = e.target.files[0]; if (!arq) return;
+  const r = await api("POST", `/api/cores?nome=${encodeURIComponent(arq.name)}`, arq, true);
+  e.target.value = "";
+  if (!r.ok) { aviso(r.dados.erro || "não consegui instalar o filtro"); return; }
+  S.estilos = (await api("GET", "/api/estilos")).dados;
+  S.proj.cor.look = r.dados.id; S.proj.cor.intensidade = 1;
+  desenharCor(); mudou({ controles: false });
+  aviso("filtro instalado e aplicado. ele fica disponível em todos os vídeos");
+};
 $("#cor-auto").onclick = async e => {
   const b = e.currentTarget;
   b.disabled = true; b.textContent = "analisando o vídeo";
@@ -1073,6 +1090,7 @@ function efeitosPrevia() {
   S.pbAgora = (S.plano.camadas || []).some(c => c.tipo === "efeito" && c.efeito === "pb" && out >= c.ini_out && out < c.fim_out);
   tv.style.transform = ef.z !== 1 || ef.sx || ef.sy ? `translate(${-ef.sx * 100}%, ${-ef.sy * 100}%) scale(${ef.z})` : "";
   aplicarCorPrevia();
+  desenharLutPrevia();
   if (!video.paused && out > outAnterior && out - outAnterior < .3) {
     for (const s of S.plano.sons || []) if (s.ini_out > outAnterior && s.ini_out <= out) tocarSom(s.som, s.volume);
   }
@@ -1127,6 +1145,124 @@ function sincronizarRecortes(temAtras) {
     if (!video.paused) { if (v.paused) v.play().catch(() => {}); if (Math.abs(v.currentTime - alvo) > .25) v.currentTime = alvo; }
     else { if (!v.paused) v.pause(); if (Math.abs(v.currentTime - alvo) > .05) v.currentTime = alvo; }
   }
+}
+
+/* ============================================================ estilos de cor em .cube (LUT 3D)
+   A prévia desenha o vídeo numa tela WebGL com o LUT, a mesma conta do lut3d do FFmpeg.
+   As miniaturas aplicam o LUT no quadro capturado, direto no JavaScript. */
+const LUTS = {};   // url -> { n, dados: Float32Array }
+async function carregarLut(url) {
+  if (LUTS[url]) return LUTS[url];
+  const txt = await (await fetch(url)).text();
+  let n = 33; const nums = [];
+  for (const linha of txt.split("\n")) {
+    const l = linha.trim();
+    if (!l || l.startsWith("#")) continue;
+    if (l.startsWith("LUT_3D_SIZE")) { n = parseInt(l.split(/\s+/)[1], 10); continue; }
+    if (/^[A-Z_]/.test(l)) continue;
+    const p = l.split(/\s+/);
+    nums.push(+p[0], +p[1], +p[2]);
+  }
+  return (LUTS[url] = { n, dados: Float32Array.from(nums) });
+}
+function aplicarLutPixel(lut, r, g, b) {
+  const n = lut.n, d = lut.dados, m = n - 1;
+  const fr = r * m, fg = g * m, fb = b * m;
+  const r0 = Math.floor(fr), g0 = Math.floor(fg), b0 = Math.floor(fb);
+  const r1 = Math.min(r0 + 1, m), g1 = Math.min(g0 + 1, m), b1 = Math.min(b0 + 1, m);
+  const tr = fr - r0, tg = fg - g0, tb = fb - b0;
+  const at = (ri, gi, bi, c) => d[3 * (ri + gi * n + bi * n * n) + c];
+  const out = [0, 0, 0];
+  for (let c = 0; c < 3; c++) {
+    const c00 = at(r0, g0, b0, c) * (1 - tr) + at(r1, g0, b0, c) * tr;
+    const c10 = at(r0, g1, b0, c) * (1 - tr) + at(r1, g1, b0, c) * tr;
+    const c01 = at(r0, g0, b1, c) * (1 - tr) + at(r1, g0, b1, c) * tr;
+    const c11 = at(r0, g1, b1, c) * (1 - tr) + at(r1, g1, b1, c) * tr;
+    out[c] = (c00 * (1 - tg) + c10 * tg) * (1 - tb) + (c01 * (1 - tg) + c11 * tg) * tb;
+  }
+  return out;
+}
+const miniLut = {};
+async function miniaturaLut(id, url) {
+  if (miniLut[id]) return miniLut[id];
+  if (!quadroLooksDados) return null;
+  const lut = await carregarLut(url);
+  const { width: w, height: h, data } = quadroLooksDados;
+  const c = document.createElement("canvas"); c.width = w; c.height = h;
+  const g = c.getContext("2d"); const img = g.createImageData(w, h);
+  for (let i = 0; i < data.length; i += 4) {
+    const [r, gg, b] = aplicarLutPixel(lut, data[i] / 255, data[i + 1] / 255, data[i + 2] / 255);
+    img.data[i] = r * 255; img.data[i + 1] = gg * 255; img.data[i + 2] = b * 255; img.data[i + 3] = 255;
+  }
+  g.putImageData(img, 0, 0);
+  return (miniLut[id] = c.toDataURL("image/jpeg", .85));
+}
+
+const GL = { ok: false, url: null };
+function iniciarGL() {
+  const cv = $("#lut-canvas");
+  const gl = cv.getContext("webgl", { premultipliedAlpha: false, alpha: true });
+  if (!gl) return false;
+  const vs = `attribute vec2 p; attribute vec2 t; varying vec2 uv; void main(){ uv=t; gl_Position=vec4(p,0.,1.); }`;
+  const fs = `precision mediump float; uniform sampler2D vid; uniform sampler2D lut; uniform float N; uniform float k; varying vec2 uv;
+    vec3 lutc(vec3 c){ float bs=c.b*(N-1.); float b0=floor(bs); float b1=min(b0+1.,N-1.); float f=bs-b0;
+      float x=c.r*(N-1.)+.5; float y=(c.g*(N-1.)+.5)/N;
+      vec3 a=texture2D(lut, vec2((b0*N+x)/(N*N), y)).rgb; vec3 b=texture2D(lut, vec2((b1*N+x)/(N*N), y)).rgb; return mix(a,b,f); }
+    void main(){ vec3 c=texture2D(vid,uv).rgb; gl_FragColor=vec4(mix(c,lutc(c),k),1.); }`;
+  const sh = (tipo, src) => { const s = gl.createShader(tipo); gl.shaderSource(s, src); gl.compileShader(s); return s; };
+  const pr = gl.createProgram();
+  gl.attachShader(pr, sh(gl.VERTEX_SHADER, vs)); gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, fs));
+  gl.linkProgram(pr); if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) return false;
+  gl.useProgram(pr);
+  const tex = () => { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+    for (const [k, v] of [[gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE], [gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
+    return t; };
+  Object.assign(GL, { gl, pr, cv, tvid: tex(), tlut: tex(), buf: gl.createBuffer(), ok: true });
+  gl.uniform1i(gl.getUniformLocation(pr, "vid"), 0); gl.uniform1i(gl.getUniformLocation(pr, "lut"), 1);
+  return true;
+}
+async function prepararLutGL(url) {
+  if (!GL.ok && !iniciarGL()) return false;
+  if (GL.url === url) return true;
+  const lut = await carregarLut(url), n = lut.n, gl = GL.gl;
+  const px = new Uint8Array(n * n * n * 3);
+  for (let i = 0; i < n * n * n; i++) {
+    const r = i % n, g = Math.floor(i / n) % n, b = Math.floor(i / (n * n));
+    const o = 3 * (g * n * n + b * n + r);
+    px[o] = Math.round(lut.dados[3 * i] * 255); px[o + 1] = Math.round(lut.dados[3 * i + 1] * 255); px[o + 2] = Math.round(lut.dados[3 * i + 2] * 255);
+  }
+  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, GL.tlut);
+  gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, n * n, n, 0, gl.RGB, gl.UNSIGNED_BYTE, px);
+  gl.uniform1f(gl.getUniformLocation(GL.pr, "N"), n);
+  GL.url = url;
+  return true;
+}
+let lutPedido = null;
+function desenharLutPrevia() {
+  const lut = S.plano?.cor?.lut, cv = $("#lut-canvas");
+  if (!lut) { cv.style.display = "none"; return; }
+  if (GL.url !== lut.url) { if (lutPedido !== lut.url) { lutPedido = lut.url; prepararLutGL(lut.url); } cv.style.display = "none"; return; }
+  if (video.readyState < 2) return;
+  const gl = GL.gl, dpr = Math.min(2, devicePixelRatio || 1);
+  const cw = Math.round(cv.clientWidth * dpr), ch = Math.round(cv.clientHeight * dpr);
+  if (cv.width !== cw || cv.height !== ch) { cv.width = cw; cv.height = ch; }
+  const vw = video.videoWidth, vh = video.videoHeight; if (!vw) return;
+  const ajustar = S.proj.formato.enquadramento === "ajustar";
+  const s = ajustar ? Math.min(cw / vw, ch / vh) : Math.max(cw / vw, ch / vh);
+  const dw = vw * s / cw, dh = vh * s / ch;
+  const q = new Float32Array([-dw, -dh, 0, 1, dw, -dh, 1, 1, -dw, dh, 0, 0, dw, dh, 1, 0]);
+  gl.viewport(0, 0, cw, ch); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.bindBuffer(gl.ARRAY_BUFFER, GL.buf); gl.bufferData(gl.ARRAY_BUFFER, q, gl.DYNAMIC_DRAW);
+  const ap = gl.getAttribLocation(GL.pr, "p"), at = gl.getAttribLocation(GL.pr, "t");
+  gl.enableVertexAttribArray(ap); gl.vertexAttribPointer(ap, 2, gl.FLOAT, false, 16, 0);
+  gl.enableVertexAttribArray(at); gl.vertexAttribPointer(at, 2, gl.FLOAT, false, 16, 8);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, GL.tvid);
+  gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
+  try { gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, video); } catch (e) { return; }
+  gl.uniform1f(gl.getUniformLocation(GL.pr, "k"), lut.intensidade ?? 1);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  cv.style.display = "block";
 }
 
 /* ============================================================ abas e eventos */

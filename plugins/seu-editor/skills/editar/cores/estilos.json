@@ -1,0 +1,184 @@
+{
+ "versao": 1,
+ "origem": "medido em 11 projetos do CapCut (original x export), 23/11/2026",
+ "estilos": [
+  {
+   "id": "dourado-quente",
+   "nome": "Dourado quente",
+   "descricao": "Pele dourada e luz amarela; o mais quente de todos.",
+   "lut": "estilos-cor/dourado-quente.cube",
+   "projetos_base": [
+    "1005",
+    "0928 (2)"
+   ],
+   "medidas": {
+    "brilho_dL": -8.0,
+    "verde_magenta_da": 2.1,
+    "azul_amarelo_db": 4.7,
+    "saturacao_pct": 18,
+    "contraste_pct": -7,
+    "preto_L": [
+     3.7,
+     2.9
+    ],
+    "branco_L": [
+     90.7,
+     81.2
+    ],
+    "pele_dL": -5.0,
+    "pele_da": 5.3,
+    "pele_db": 5.3,
+    "pele_croma_pct": 35
+   },
+   "receita_capcut": {
+    "Golden Brown": "47–50",
+    "4K": "26–42",
+    "Peach Fuzz 2": "20–27",
+    "Green Orange ou Deadpool": "14 / 32"
+   }
+  },
+  {
+   "id": "pessego-vibrante",
+   "nome": "Pêssego vibrante",
+   "descricao": "Cor forte e pele rosada; o mais saturado.",
+   "lut": "estilos-cor/pessego-vibrante.cube",
+   "projetos_base": [
+    "0925",
+    "0724 (1)"
+   ],
+   "medidas": {
+    "brilho_dL": -8.5,
+    "verde_magenta_da": 1.8,
+    "azul_amarelo_db": 0.4,
+    "saturacao_pct": 37,
+    "contraste_pct": -7,
+    "preto_L": [
+     6.1,
+     4.5
+    ],
+    "branco_L": [
+     96.2,
+     88.4
+    ],
+    "pele_dL": -5.6,
+    "pele_da": 5.1,
+    "pele_db": 3.6,
+    "pele_croma_pct": 24
+   },
+   "receita_capcut": {
+    "Peach Fuzz 2": "26–59",
+    "Wild Venture": "24–31",
+    "Summer Tale": "15–21",
+    "Warm": "10–13",
+    "4K": "9–41",
+    "opcional: Enhance / Orange Blue / Bold Saturation": "30 / 18 / 22"
+   }
+  },
+  {
+   "id": "quente-suave",
+   "nome": "Quente suave",
+   "descricao": "Quase natural: só esquenta a pele e dá nitidez.",
+   "lut": "estilos-cor/quente-suave.cube",
+   "projetos_base": [
+    "0921 (2)",
+    "TARITA 02",
+    "marina_iron"
+   ],
+   "medidas": {
+    "brilho_dL": -3.4,
+    "verde_magenta_da": 1.4,
+    "azul_amarelo_db": 1.5,
+    "saturacao_pct": 10,
+    "contraste_pct": -1,
+    "preto_L": [
+     1.3,
+     0.9
+    ],
+    "branco_L": [
+     97.7,
+     95.0
+    ],
+    "pele_dL": -2.1,
+    "pele_da": 3.1,
+    "pele_db": 3.2,
+    "pele_croma_pct": 18
+   },
+   "receita_capcut": {
+    "4K": "27–63",
+    "Peach Fuzz 2 (ou Peach Fuzz)": "17–30",
+    "Warm ou Summer Tale": "15–26",
+    "opcional: Orange Blue / Enhance / HD Light": "19 / 12 / 10"
+   }
+  },
+  {
+   "id": "doc-contraste",
+   "nome": "Documentário",
+   "descricao": "Preto mais fundo e luz amarelada; bom para muito b-roll.",
+   "lut": "estilos-cor/doc-contraste.cube",
+   "projetos_base": [
+    "origem triathlon",
+    "0904 (2)"
+   ],
+   "medidas": {
+    "brilho_dL": -8.2,
+    "verde_magenta_da": 0.4,
+    "azul_amarelo_db": 2.6,
+    "saturacao_pct": 8,
+    "contraste_pct": 0,
+    "preto_L": [
+     3.4,
+     1.1
+    ],
+    "branco_L": [
+     95.3,
+     87.6
+    ],
+    "pele_dL": -4.1,
+    "pele_da": 4.0,
+    "pele_db": 5.2,
+    "pele_croma_pct": 28
+   },
+   "receita_capcut": {
+    "Enhance": "29–36",
+    "Warm": "24–27",
+    "Peach Fuzz 2": "21–44",
+    "4K": "18–21",
+    "Orange Blue ou Summer Tale": "35 / 38",
+    "opcional: Green Orange / French Passion": "21 / 25"
+   }
+  },
+  {
+   "id": "neutro-limpo",
+   "nome": "Neutro limpo",
+   "descricao": "Não esquenta; tira um pouco de verde e amarelo; pele levemente rosada.",
+   "lut": "estilos-cor/neutro-limpo.cube",
+   "projetos_base": [
+    "MARINA_PREÁ"
+   ],
+   "medidas": {
+    "brilho_dL": -4.9,
+    "verde_magenta_da": -0.9,
+    "azul_amarelo_db": -1.1,
+    "saturacao_pct": -3,
+    "contraste_pct": -2,
+    "preto_L": [
+     2.1,
+     2.1
+    ],
+    "branco_L": [
+     90.0,
+     86.8
+    ],
+    "pele_dL": -4.9,
+    "pele_da": 2.4,
+    "pele_db": 2.1,
+    "pele_croma_pct": 13
+   },
+   "receita_capcut": {
+    "Wild Venture": "16",
+    "4K": "21",
+    "Enhance": "16"
+   }
+  }
+ ]
+}

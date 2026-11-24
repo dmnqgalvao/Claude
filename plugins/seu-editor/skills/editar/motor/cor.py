@@ -9,6 +9,8 @@ Olha um quadro por segundo do vídeo (bem pequeno) e calcula:
 Os limites são conservadores pra não estragar vídeo que já está bom.
 """
 
+import json
+import os
 import subprocess
 
 # Filtros (looks). Cada um é uma curva de tons por canal: contraste em S, cor nas sombras,
@@ -41,6 +43,35 @@ APELIDOS = {"quente": "dourado", "quente_nitido": "dourado", "vivo": "verao"}
 FILTROS = {k: {} for k in list(LOOKS) + list(APELIDOS)}
 
 
+# Estilos de cor medidos nas edições da Domi (LUT 3D .cube). Ficam em cores/ do plugin e,
+# os enviados pela pessoa, em ~/.seu-editor/cores. Aparecem antes dos filtros de curva.
+PASTA_CORES = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "cores")
+
+
+def luts(dados=None):
+    """{id: {nome, descricao, arquivo (caminho), url, quando}} dos .cube disponíveis."""
+    saida = {}
+    meta = {}
+    try:
+        with open(os.path.join(PASTA_CORES, "estilos.json"), encoding="utf-8") as f:
+            for e in json.load(f).get("estilos", []):
+                meta[e["id"]] = e
+    except (OSError, ValueError):
+        pass
+    for base, prefixo in ((PASTA_CORES, "/cores/"), (os.path.join(dados, "cores") if dados else None, "/cores-pessoa/")):
+        if not base or not os.path.isdir(base):
+            continue
+        for nome in sorted(os.listdir(base)):
+            if not nome.lower().endswith(".cube"):
+                continue
+            lid = os.path.splitext(nome)[0]
+            m = meta.get(lid, {})
+            saida[lid] = {"nome": m.get("nome") or lid.replace("-", " "), "descricao": m.get("descricao", ""),
+                          "arquivo": os.path.join(base, nome), "url": prefixo + nome, "lut": True}
+    ordem = [e for e in meta if e in saida] + [k for k in saida if k not in meta]
+    return {k: saida[k] for k in ordem}
+
+
 def _s(x):
     return x * x * (3 - 2 * x)
 
@@ -49,7 +80,7 @@ def curvas(cor, pontos=17):
     """Curva final (r, g, b) com o filtro, a intensidade e os ajustes da pessoa."""
     cor = cor or {}
     nome = APELIDOS.get(cor.get("look") or "nenhum", cor.get("look") or "nenhum")
-    lk = LOOKS.get(nome, LOOKS["nenhum"])
+    lk = LOOKS.get(nome, LOOKS["nenhum"])   # estilo em .cube: a curva fica só com os ajustes
     k = max(0.0, min(1.0, float(cor.get("intensidade", 1.0))))
     ganho_auto = cor.get("ganhos") if cor.get("auto") else (1, 1, 1)
     t = float(cor.get("temperatura", 0))
@@ -84,8 +115,17 @@ def curvas(cor, pontos=17):
     return {"r": saida[0], "g": saida[1], "b": saida[2], "saturacao": round(sat, 4)}
 
 
-def looks_para_interface():
-    return {nome: {"nome": lk["nome"], **curvas({"look": nome})} for nome, lk in LOOKS.items()}
+# Filtros de curva que aparecem na interface, além dos estilos em .cube.
+# Os outros continuam funcionando em projetos antigos e pelo comando `cor --filtro`.
+LOOKS_VISIVEIS = ("frio", "cinema")
+
+
+def looks_para_interface(dados=None):
+    saida = {"nenhum": {"nome": "original", **curvas({"look": "nenhum"})}}
+    saida.update({k: {"nome": v["nome"], "descricao": v["descricao"], "url": v["url"], "lut": True}
+                  for k, v in luts(dados).items()})
+    saida.update({nome: {"nome": LOOKS[nome]["nome"], **curvas({"look": nome})} for nome in LOOKS_VISIVEIS})
+    return saida
 
 
 def analisar(video, maximo_quadros=40):
