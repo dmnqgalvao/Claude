@@ -43,6 +43,13 @@
   background: #fff; padding: 14px; border-radius: 6px;
   box-shadow: 0 24px 48px -12px rgba(0, 0, 0, .45), 0 2px 6px rgba(0, 0, 0, .2);
 }
+.m-cartao.moldura-arredondada { padding: 0; border-radius: 34px; overflow: hidden; }
+.m-cartao.moldura-arredondada img { border-radius: 0; }
+.m-cartao.moldura-sem { padding: 0; background: transparent; box-shadow: none; border-radius: 0; }
+.m-cartao.moldura-sem img { filter: drop-shadow(0 18px 30px rgba(0,0,0,.35)); }
+.m-cartao.moldura-celular { padding: 16px; background: #111; border-radius: 64px; box-shadow: 0 30px 60px -12px rgba(0,0,0,.55), inset 0 0 0 3px #2a2a2a; }
+.m-cartao.moldura-celular img { border-radius: 48px; }
+.m-cartao.moldura-fita::before { content: ""; position: absolute; left: 50%; top: -22px; width: 38%; height: 44px; transform: translateX(-50%) rotate(-3deg); background: rgba(255, 238, 200, .78); box-shadow: 0 2px 6px rgba(0,0,0,.12); }
 .m-cartao img, .m-cartao video { display: block; width: 100%; height: auto; border-radius: 2px; }
 
 .m-tela-cheia { left: 0; top: 0; width: 1080px; height: 1920px; overflow: hidden; background: #000; }

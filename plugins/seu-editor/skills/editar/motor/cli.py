@@ -13,6 +13,7 @@ Comandos:
   gancho PROJETO "texto" [--duracao 3]      define o gancho escrito do início
   sugerir PROJETO "gancho 1" "gancho 2"...  deixa sugestões de gancho na interface
   insertos PROJETO                          lista as fotos e vídeos da pasta insertos/
+  buscar-insertos PROJETO LINK_OU_PASTA     traz insertos do Google Drive, Dropbox, link ou pasta
   camada PROJETO '{"tipo": ...}'            cria ou atualiza uma camada (JSON, veja o SKILL.md)
   camadas PROJETO                           lista as camadas com id, tipo e tempo
   remover PROJETO ID [ID...]                apaga camadas
@@ -23,6 +24,10 @@ Comandos:
   cor PROJETO [--auto] [--filtro quente] [--brilho 0.05] [--contraste 1.1] ...
   trilha PROJETO musica.mp3 [--volume 0.14] [--sem-abaixar]   música de fundo (arquivo em insertos/)
   cortar-tempo PROJETO 12.5 14.2 [--desfazer]   corta um trecho por tempo do vídeo original
+  receitas                                  lista os jeitos de editar salvos
+  receita-aplicar PROJETO "nome"            aplica uma receita e mostra as regras dela
+  receita-salvar "nome" [--projeto P] [--descricao D] [--regras R]   cria ou atualiza
+  receita-ver "nome"                        mostra a receita inteira
   ajustar PROJETO [--ritmo R] [--posicao 0.64] [--enquadramento ajustar] ...
   status PROJETO "mensagem" [--livre]       mostra o que o Claude está fazendo
   resumo PROJETO                            números do projeto
@@ -331,6 +336,45 @@ def cmd_cortar_tempo(a):
     print(f"{len(proj['cortes_tempo'])} trechos cortados por tempo")
 
 
+def cmd_buscar_insertos(a):
+    from . import buscar as B
+    trazidos = B.buscar(a.projeto, a.origem, log=lambda m: print(m, file=sys.stderr))
+    print(f"{len(trazidos)} arquivos em insertos/: " + ", ".join(trazidos))
+
+
+def cmd_receitas(a):
+    from . import receitas as R
+    itens = R.listar(dados_dir())
+    if not itens:
+        print("(nenhuma receita salva ainda)")
+    for r in itens:
+        print(f"- {r['nome']}: {r['descricao'] or '(sem descrição)'}")
+
+
+def cmd_receita_ver(a):
+    from . import receitas as R
+    print(json.dumps(R.ler(dados_dir(), a.nome), ensure_ascii=False, indent=1))
+
+
+def cmd_receita_salvar(a):
+    from . import receitas as R
+    proj = None if a.sem_visual or not a.projeto else P.carregar(a.projeto)
+    rid = R.salvar(dados_dir(), a.nome, proj, a.descricao or "", a.regras or "")
+    print(f"receita salva: {rid}")
+
+
+def cmd_receita_aplicar(a):
+    from . import receitas as R
+    r = R.ler(dados_dir(), a.nome)
+    proj = R.aplicar(P.carregar(a.projeto), r)
+    P.salvar(a.projeto, proj)
+    print(f"receita '{r['nome']}' aplicada (fontes, legenda, gancho, ritmo, cor e formato).")
+    if proj["cor"].get("auto_pendente"):
+        print("a receita usa correção de cor automática: rode `cor PROJETO --auto` neste vídeo.")
+    if r.get("regras"):
+        print("\nREGRAS DESTA RECEITA (siga ao montar cortes, destaques, gancho e camadas):\n" + r["regras"])
+
+
 def cmd_ajustar(a):
     proj = P.carregar(a.projeto)
     if a.ritmo:
@@ -421,6 +465,14 @@ def main(argv=None):
     s = sub.add_parser("cortar-tempo"); s.add_argument("projeto"); s.add_argument("ini", type=float)
     s.add_argument("fim", type=float, nargs="?", default=0); s.add_argument("--desfazer", action="store_true")
     s.set_defaults(f=cmd_cortar_tempo)
+    s = sub.add_parser("buscar-insertos"); s.add_argument("projeto"); s.add_argument("origem")
+    s.set_defaults(f=cmd_buscar_insertos)
+    s = sub.add_parser("receitas"); s.set_defaults(f=cmd_receitas)
+    s = sub.add_parser("receita-ver"); s.add_argument("nome"); s.set_defaults(f=cmd_receita_ver)
+    s = sub.add_parser("receita-salvar"); s.add_argument("nome"); s.add_argument("--projeto")
+    s.add_argument("--descricao"); s.add_argument("--regras"); s.add_argument("--sem-visual", action="store_true")
+    s.set_defaults(f=cmd_receita_salvar)
+    s = sub.add_parser("receita-aplicar"); s.add_argument("projeto"); s.add_argument("nome"); s.set_defaults(f=cmd_receita_aplicar)
     s = sub.add_parser("ajustar"); s.add_argument("projeto")
     s.add_argument("--ritmo", choices=list(P.RITMOS)); s.add_argument("--pausa-max", type=float)
     s.add_argument("--folga", type=float); s.add_argument("--posicao", type=float)

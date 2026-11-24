@@ -1,6 +1,6 @@
 ---
 name: editar
-description: Editor de vídeo falado em português com interface visual. Corta pausas, regravações e hesitações, coloca legenda animada, gancho escrito, palavras de impacto, fotos e vídeos inseridos (cartão ou tela cheia), desenhos à mão (círculo, seta, sublinhado) e textos fixos, e exporta em 1080x1920 pra Reels e TikTok. Use quando a pessoa pedir pra editar, cortar ou legendar um vídeo, tirar silêncios, colocar inserts ou b-roll, textos em destaque, ou abrir o Seu Editor.
+description: Editor de vídeo falado em português com interface visual. Corta pausas, regravações e hesitações, coloca legenda animada, gancho escrito, palavras de impacto, fotos e vídeos inseridos (cartão ou tela cheia), desenhos à mão (círculo, seta, sublinhado) e textos fixos, e exporta em 1080x1920 pra Reels e TikTok. Use sempre que a pessoa pedir pra editar, cortar ou legendar um vídeo, tirar silêncios, colocar inserts ou b-roll, textos em destaque, ou abrir o Seu Editor, inclusive quando pedir "edita do jeito X", "no estilo da cliente Y" ou com uma receita de edição salva.
 argument-hint: "[caminho do vídeo]"
 ---
 
@@ -53,7 +53,32 @@ O servidor imprime o endereço (normalmente http://127.0.0.1:4848). Passe pra pe
 navegador não abrir. Em computador fraco, use `transcrever "$PRJ" --modelo small`.
 
 Pergunte, sem travar o trabalho, se ela tem fotos, prints ou vídeos pra inserir. Ela pode
-arrastar na aba "camadas" ou você copia os arquivos pra `$PRJ/insertos/`.
+arrastar na aba "camadas", colar um link do Google Drive ali, ou mandar o link no chat:
+`ed buscar-insertos "$PRJ" "<link do Drive, Dropbox, link direto ou pasta do computador>"`.
+O link do Drive precisa estar compartilhado como "qualquer pessoa com o link".
+
+## 2.5. Estilo do vídeo
+
+O estilo vem do pedido da pessoa. As receitas de cliente não aparecem na interface: elas só
+existem quando a pessoa pede no chat.
+
+- **A pessoa citou um estilo** ("no estilo da marina", "do jeito triathlon", "igual ao
+  último da tarita"): rode `ed receitas`, ache a receita com esse nome e aplique com
+  `ed receita-aplicar "$PRJ" "marina"`. O comando imprime as **regras da receita**, que
+  valem mais que as orientações padrão da etapa 3: siga à risca palavras de impacto, zoom,
+  sons, tipo de gancho, ritmo, insertos e CTA. Se a receita pede cor automática, rode
+  `ed cor "$PRJ" --auto`. Se não existir receita com esse nome, diga isso e siga o que a
+  pessoa descreveu.
+- **A pessoa não citou estilo**: use os 4 estilos padrão, `cool`, `star`, `basic` e `glow`.
+  Enquanto a transcrição roda, pergunte em uma linha qual dos 4 ela quer. Se ela não
+  responder, siga com o padrão da marca (ou `cool`) e lembre que ela troca na aba estilo.
+- **A pessoa descreveu um jeito novo** e gostou do resultado: ofereça salvar como receita,
+  pra pedir pelo nome da próxima vez:
+  `ed receita-salvar "nome" --projeto "$PRJ" --descricao "resumo curto" --regras "o que ela pediu, escrito como regra"`.
+- **A pessoa corrigiu algo que deve valer sempre** naquele estilo ("na marina a legenda é
+  sempre amarela", "nunca usa flash"): leia com `ed receita-ver "nome"`, reescreva as regras
+  com a correção e salve com `ed receita-salvar "nome" --regras "texto completo"`
+  (acrescente `--projeto "$PRJ"` se o visual também mudou).
 
 ## 3. Primeira edição
 
@@ -95,8 +120,10 @@ Campos comuns: `palavra` (ou `ini` em segundos do vídeo editado), `duracao`, `x
 ```bash
 # palavra de impacto: jeitos pincel, condensado, estilo (fonte de destaque) ou etiqueta
 ed camada "$PRJ" '{"tipo":"impacto","estilo":"pincel","texto":"estratégia","palavra":42,"duracao":1.8,"y":0.42,"ligar":true}'
-# foto em cartão flutuando (ou "modo":"tela" pra tela inteira com zoom lento)
-ed camada "$PRJ" '{"tipo":"imagem","arquivo":"print.jpg","modo":"cartao","palavra":42,"duracao":2.5,"x":0.72,"y":0.28,"tamanho":0.34,"rot":6}'
+# foto em cartão (ou "modo":"tela" pra tela inteira com zoom lento)
+# moldura: polaroid, fita, arredondada, celular, sem (png recortado)
+# movimento: flutua, aproxima, gira | entrada: pop, desliza, cai, esquerda, direita, fade
+ed camada "$PRJ" '{"tipo":"imagem","arquivo":"print.jpg","modo":"cartao","moldura":"celular","movimento":"flutua","entrada":"direita","palavra":42,"duracao":2.5,"x":0.72,"y":0.28,"tamanho":0.34,"rot":6}'
 # vídeo inserido (b-roll), sem som; "inicio_clip" escolhe o trecho
 ed camada "$PRJ" '{"tipo":"video","arquivo":"broll.mp4","modo":"tela","palavra":60,"duracao":3,"inicio_clip":2}'
 # desenho que se desenha sozinho: circulo, seta, sublinhado, x, brilho

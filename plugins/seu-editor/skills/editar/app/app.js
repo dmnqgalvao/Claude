@@ -573,6 +573,14 @@ cartaoInsertos.addEventListener("dragover", e => { e.preventDefault(); cartaoIns
 cartaoInsertos.addEventListener("dragleave", () => cartaoInsertos.classList.remove("solta-aqui"));
 cartaoInsertos.addEventListener("drop", e => { e.preventDefault(); cartaoInsertos.classList.remove("solta-aqui"); enviarInsertos([...e.dataTransfer.files]); });
 
+$("#buscar-link").onclick = async () => {
+  const link = $("#link-insertos").value.trim(); if (!link) { aviso("cole o link primeiro"); return; }
+  const r = await api("POST", "/api/insertos-link", { link });
+  if (!r.ok) { aviso(r.dados.erro || "não deu"); return; }
+  $("#link-insertos").value = "";
+  aviso("trazendo os insertos, eles aparecem aqui quando chegarem");
+};
+
 let ladoCartao = 1;
 $("#insertos").onclick = e => {
   const b = e.target.closest(".inserto"); if (!b) return;
@@ -706,6 +714,10 @@ function desenharEditorCamada(forcar) {
     sel.querySelector("select").onchange = e => mexe("arquivo", e.target.value);
     corpo.appendChild(sel);
     corpo.appendChild(linha("jeito", campoPilulas([["cartao", "cartão flutuando"], ["tela", "tela inteira"]], c.modo || "cartao", v => { mexe("modo", v); setTimeout(() => desenharEditorCamada(true), 80); })));
+    if (c.tipo === "imagem" && c.modo !== "tela") {
+      corpo.appendChild(linha("moldura", campoPilulas([["polaroid", "polaroid"], ["fita", "polaroid com fita"], ["arredondada", "arredondada"], ["celular", "tela de celular"], ["sem", "sem moldura (png recortado)"]], c.moldura || "polaroid", v => mexe("moldura", v))));
+      corpo.appendChild(linha("movimento", campoPilulas([["", "parado"], ["flutua", "flutuando"], ["aproxima", "aproximando devagar"], ["gira", "girando devagar"]], c.movimento || "", v => mexe("movimento", v || null))));
+    }
     if (c.tipo === "imagem" && c.modo !== "tela") corpo.appendChild(linha("formato", campoPilulas([["", "original"], ["4/5", "4:5"], ["1/1", "quadrado"], ["9/16", "9:16"]], c.proporcao || "", v => mexe("proporcao", v || null))));
     if (c.tipo === "video") corpo.appendChild(campoFaixa("começar o clipe no segundo", 0, 60, 0.1, c.inicio_clip || 0, seg, v => mexe("inicio_clip", v)));
   }
@@ -737,7 +749,7 @@ function desenharEditorCamada(forcar) {
   }
   if (c.tipo !== "video" && c.tipo !== "desenho" && c.tipo !== "efeito" && c.tipo !== "som" && !(c.tipo === "imagem" && c.modo === "tela")) {
     const ent = cp?.entrada || c.entrada || "pop";
-    corpo.appendChild(linha("entrada", campoPilulas([["pop", "pop"], ["desliza", "sobe"], ["fade", "aparece"], ["escreve", "escrevendo"], ["nenhuma", "seco"]], ent, v => mexe("entrada", v))));
+    corpo.appendChild(linha("entrada", campoPilulas([["pop", "pop"], ["desliza", "sobe"], ["cai", "cai do alto"], ["esquerda", "vem da esquerda"], ["direita", "vem da direita"], ["fade", "aparece"], ["escreve", "escrevendo"], ["nenhuma", "seco"]], ent, v => mexe("entrada", v))));
   }
   if (c.tipo === "impacto") corpo.appendChild(campoChave("ligar com linhas às fotos que estão na tela", c.ligar, v => mexe("ligar", v)));
 
@@ -1070,6 +1082,7 @@ async function vigiar() {
       listarExportados();
     }
     if (S.ultimoExport === null) S.ultimoExport = e.ultimo_export || "";
+    if (e.insertos_novos && e.atualizado !== S.insertosVistos) { S.insertosVistos = e.atualizado; listarInsertos().then(desenharTrilhaFundo); if (!e.tarefa) aviso(e.mensagem); }
     if (!S.sujo && !S.salvando && !arrasteBarra && !arrasteTela && r.dados.mtime !== S.mtime) await recarregar();
   } catch (err) {
     $("#status-txt").textContent = "sem conexão com o claude code";

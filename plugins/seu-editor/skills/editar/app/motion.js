@@ -31,23 +31,25 @@
   const quebras = t => esc(t).split("|").map(l => l.trim()).join("<br>");
 
   /* -------------------------------------------------------- entrada e saída */
-  const DUR_ENTRADA = { pop: .38, desliza: .4, fade: .28, escreve: .6, nenhuma: .001 };
+  const DUR_ENTRADA = { pop: .38, desliza: .4, fade: .28, escreve: .6, nenhuma: .001, esquerda: .45, direita: .45, cai: .5 };
   function envelope(c, t, entrada) {
     const din = DUR_ENTRADA[entrada] ?? .35;
     const pin = c01((t - c.ini_out) / din);
     const pout = c.ate_o_fim ? 0 : c01((t - (c.fim_out - .22)) / .22);
-    let op = 1, sc = 1, ty = 0, clip = "";
+    let op = 1, sc = 1, ty = 0, tx = 0, clip = "";
     if (entrada === "pop") { sc = .35 + .65 * ease.back(pin); op = c01(pin * 4); }
     else if (entrada === "desliza") { ty = (1 - ease.out(pin)) * 80; op = ease.out(pin); }
     else if (entrada === "fade") { op = pin; }
+    else if (entrada === "esquerda" || entrada === "direita") { tx = (1 - ease.out(pin)) * (entrada === "esquerda" ? -760 : 760); op = c01(pin * 3); }
+    else if (entrada === "cai") { ty = -(1 - ease.back(pin)) * 260; op = c01(pin * 4); }
     else if (entrada === "escreve") { clip = `inset(-20% ${r3((1 - ease.inout(pin)) * 100)}% -20% -10%)`; op = c01(pin * 6); }
     op *= 1 - pout; sc *= 1 - .08 * pout;
-    return { op: r3(op), sc: r3(sc), ty: r3(ty), clip, pin };
+    return { op: r3(op), sc: r3(sc), ty: r3(ty), tx: r3(tx), clip, pin };
   }
   function posicionar(el, c, env, extra = "") {
     const x = (c.x ?? .5) * W, y = (c.y ?? .5) * H;
     el.style.left = x + "px"; el.style.top = y + "px";
-    el.style.transform = `translate(-50%,-50%) translateY(${env.ty}px) rotate(${c.rot ?? 0}deg) scale(${env.sc})${extra}`;
+    el.style.transform = `translate(-50%,-50%) translate(${env.tx || 0}px, ${env.ty}px) rotate(${c.rot ?? 0}deg) scale(${env.sc})${extra}`;
     el.style.opacity = env.op;
     el.style.clipPath = env.clip || "";
   }
@@ -214,19 +216,28 @@
       };
     }
     return {
-      k: "img" + c.id + hash(src + (c.proporcao || "")), z: 30, id: c.id,
+      k: "img" + c.id + hash(src + (c.proporcao || "") + (c.moldura || "")), z: 30, id: c.id,
       criar() {
-        const el = document.createElement("div"); el.className = "m-cartao";
+        const el = document.createElement("div"); el.className = "m-cartao moldura-" + (c.moldura || "polaroid");
         el.innerHTML = `<img src="${src}" alt="">`;
         if (c.proporcao) { el.firstChild.style.aspectRatio = c.proporcao; el.firstChild.style.objectFit = "cover"; }
         return el;
       },
       atualizar(el, t) {
         el.style.width = ((c.tamanho || .34) * W) + "px";
-        posicionar(el, c, envelope(c, t, c.entrada || "pop"));
+        posicionar(el, c, envelope(c, t, c.entrada || "pop"), movimento(c, t));
         return "";
       },
     };
+  }
+
+  /* movimento enquanto o inserto está na tela */
+  function movimento(c, t) {
+    const d = t - c.ini_out, total = Math.max(.1, c.fim_out - c.ini_out);
+    if (c.movimento === "flutua") return ` translateY(${r3(Math.sin(d * 2.2) * 10)}px) rotate(${r3(Math.sin(d * 1.6) * 1.4)}deg)`;
+    if (c.movimento === "aproxima") return ` scale(${r3(1 + .08 * c01(d / total))})`;
+    if (c.movimento === "gira") return ` rotate(${r3(d * 6)}deg)`;
+    return "";
   }
 
   function itemVideo(c, ctx) {

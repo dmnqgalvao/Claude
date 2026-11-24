@@ -104,6 +104,9 @@ class Estudio(BaseHTTPRequestHandler):
             return self._estatico(os.path.join(self.pasta, "insertos"), rota[10:])
         if rota == "/api/insertos":
             return self._json({"itens": listar_insertos(self.pasta)})
+        if rota == "/api/receitas":
+            from . import receitas as R
+            return self._json({"itens": R.listar(self.dados)})
         if rota.startswith("/exportados/"):
             return self._estatico(os.path.join(self.pasta, "exportados"), rota[12:])
         if rota == "/api/projeto":
@@ -186,6 +189,39 @@ class Estudio(BaseHTTPRequestHandler):
                     f.write(bloco)
                     falta -= len(bloco)
             return self._json({"ok": True, "nome": os.path.basename(destino)})
+        if rota == "/api/insertos-link":
+            from . import buscar as B
+            origem = (self._corpo().get("link") or "").strip()
+            if not origem:
+                return self._json({"erro": "cole o link"}, 400)
+
+            def trabalho():
+                try:
+                    P.escrever_estado(self.pasta, tarefa="baixando", mensagem="trazendo os insertos do link", erro=None)
+                    trazidos = B.buscar(self.pasta, origem, log=lambda m: P.escrever_estado(self.pasta, mensagem=m))
+                    P.escrever_estado(self.pasta, tarefa=None, mensagem=f"{len(trazidos)} insertos chegaram",
+                                      insertos_novos=len(trazidos))
+                except Exception as e:
+                    P.escrever_estado(self.pasta, tarefa=None, mensagem="não deu pra trazer os insertos", erro=str(e)[-600:])
+
+            threading.Thread(target=trabalho, daemon=True).start()
+            return self._json({"ok": True})
+        if rota == "/api/receita-salvar":
+            from . import receitas as R
+            d = self._corpo()
+            if not (d.get("nome") or "").strip():
+                return self._json({"erro": "dê um nome pra receita"}, 400)
+            rid = R.salvar(self.dados, d["nome"].strip(), P.carregar(self.pasta), d.get("descricao", ""), d.get("regras", ""))
+            return self._json({"ok": True, "id": rid})
+        if rota == "/api/receita-aplicar":
+            from . import receitas as R
+            d = self._corpo()
+            proj = R.aplicar(P.carregar(self.pasta), R.ler(self.dados, d.get("nome", "")))
+            if proj["cor"].pop("auto_pendente", None):
+                from . import cor as C
+                proj["cor"].update(C.analisar(proj["video"]), auto=True)
+            P.salvar(self.pasta, proj)
+            return self._json({"ok": True})
         if rota == "/api/cor-auto":
             from . import cor as C
             proj = P.carregar(self.pasta)

@@ -327,6 +327,8 @@ textarea:focus, input[type=text]:focus { outline: 2px solid var(--rosa); border-
 .inserto .selo-tipo { position: absolute; left: 6px; bottom: 6px; font-size: 10px; font-weight: 700; background: var(--grafite); color: var(--branco); padding: 2px 8px; border-radius: 99px; }
 .solta-aqui { outline: 3px dashed var(--rosa); outline-offset: 4px; }
 
+.link-insertos { display: flex; gap: 8px; margin-bottom: 12px; }
+.link-insertos input { flex: 1; }
 .adicionar { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 14px; }
 
 .trilhas { position: relative; padding-top: 22px; user-select: none; }
@@ -381,6 +383,7 @@ select {
 .dobra summary { cursor: pointer; font-size: 13px; font-weight: 700; color: var(--rosa-forte); margin-top: 8px; }
 .visual-aberto { border-top: 1px solid var(--linha); margin-top: 14px; }
 .duas-colunas { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+input[type=text] { border: 1px solid var(--linha); border-radius: 14px; padding: 10px 12px; background: var(--off); font-size: 15px; }
 .enviar-fonte { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 14px; }
 
 /* ------------------------------------------------ estilos (duplas de fontes) */
