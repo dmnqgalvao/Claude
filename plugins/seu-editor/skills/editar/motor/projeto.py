@@ -153,13 +153,47 @@ def proxy_desatualizado(proj):
                                     or proj.get("proxy_formato") != PROXY_FORMATO)
 
 
-def quadro_de(arquivo):
-    """Enquadramento escolhido pra um arquivo: zoom (1 = cabe certinho) e qual parte aparece
-    (x e y de 0 a 1; 0,5 é o centro)."""
-    q = (arquivo or {}).get("quadro") or {}
-    return {"zoom": max(0.5, min(4.0, float(q.get("zoom", 1.0)))),
-            "x": max(0.0, min(1.0, float(q.get("x", 0.5)))),
-            "y": max(0.0, min(1.0, float(q.get("y", 0.5))))}
+def retangulo_arquivo(arquivo, ajustar, q):
+    """Onde o quadro inteiro do arquivo fica na tela 1080x1920, em fração da tela
+    (x, y, largura, altura). Mesma conta da prévia (app.js) e da exportação."""
+    inf = (arquivo or {}).get("info") or {}
+    W, H = float(inf.get("largura") or 1080), float(inf.get("altura") or 1920)
+    z = q["zoom"] if ajustar else max(1.0, q["zoom"])
+    base = min(1080 / W, 1920 / H) if ajustar else max(1080 / W, 1920 / H)
+    dw, dh = W * base * z / 1080, H * base * z / 1920
+    return (1 - dw) * q["x"], (1 - dh) * q["y"], dw, dh
+
+
+ALVO_ROSTO = (0.5, 0.4)   # onde os olhos ficam na tela: centro, um pouco acima do meio
+
+
+def quadro_de(arquivo, ajustar=False):
+    """Enquadramento de um arquivo: zoom (1 = cabe certinho) e qual parte aparece
+    (x e y de 0 a 1; 0,5 é o centro). Sem ajuste manual, centraliza o rosto quando
+    sobra imagem pros lados (vídeo deitado, por exemplo)."""
+    q = (arquivo or {}).get("quadro")
+    if q:
+        return {"zoom": max(0.5, min(4.0, float(q.get("zoom", 1.0)))),
+                "x": max(0.0, min(1.0, float(q.get("x", 0.5)))),
+                "y": max(0.0, min(1.0, float(q.get("y", 0.5))))}
+    q = {"zoom": 1.0, "x": 0.5, "y": 0.5}
+    r = (arquivo or {}).get("rosto")
+    if r and not ajustar:
+        _, _, dw, dh = retangulo_arquivo(arquivo, False, q)
+        if dw > 1.001:
+            q["x"] = max(0.0, min(1.0, (ALVO_ROSTO[0] - r["x"] * dw) / (1 - dw)))
+        if dh > 1.001:
+            q["y"] = max(0.0, min(1.0, (ALVO_ROSTO[1] - r["y"] * dh) / (1 - dh)))
+    return q
+
+
+def rosto_na_tela(arquivo, ajustar=False):
+    """Posição dos olhos na tela editada (fração), ou None."""
+    r = (arquivo or {}).get("rosto")
+    if not r:
+        return None
+    x, y, w, h = retangulo_arquivo(arquivo, ajustar, quadro_de(arquivo, ajustar))
+    return x + r["x"] * w, y + r["y"] * h
 
 
 def projeto_padrao(video, nome, marca=None):

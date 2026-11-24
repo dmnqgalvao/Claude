@@ -133,10 +133,11 @@ def montar_filtro(plano, proj, largura, altura, fps, com_audio, videos, idx_quad
                 sw, sh = float(inf.get("largura", 1080)), float(inf.get("altura", 1920))
                 z = float(s.get("zoom", 1.0))
                 # zoom do corte: depois do enquadramento, no centro com o rosto um pouco acima
-                zoom = (f",crop=w=iw/{z:.4f}:h=ih/{z:.4f}:x=(iw-iw/{z:.4f})/2:y=(ih-ih/{z:.4f})*0.42,"
+                fx, fy = s.get("foco") or ((1 - 1 / z) / 2, (1 - 1 / z) * 0.42)
+                zoom = (f",crop=w=iw/{z:.4f}:h=ih/{z:.4f}:x=iw*{fx:.4f}:y=ih*{fy:.4f},"
                         f"scale={largura}:{altura}" if z > 1.001 else "")
                 hdr = tonemap if inf.get("hdr") and zs else ""
-                q = P.quadro_de(a)
+                q = P.quadro_de(a, ajustar)
                 ini_cadeia = f"[{idx}:v]trim=start={li:.3f}:end={lf:.3f},setpts=PTS-STARTPTS,{hdr}"
                 if ajustar:
                     esc = min(largura / sw, altura / sh) * q["zoom"]

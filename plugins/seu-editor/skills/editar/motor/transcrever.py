@@ -94,6 +94,12 @@ def transcrever(pasta, modelo="large-v3-turbo", dir_modelos=None, log=print):
             a["modo"] = "imagem" if n < 3 or n / dur < 0.35 else "fala"
     from . import regravacoes as R
     achados = R.detectar(palavras)
+    try:
+        from . import rosto
+        P.escrever_estado(pasta, mensagem="procurando seu rosto pra centralizar o zoom")
+        rosto.marcar_arquivos(proj, log=log)
+    except Exception as e:
+        log(f"sem centralizar o rosto: {e}")
     P.salvar(pasta, proj)
     auto = sum(1 for p in palavras if p.get("cortada") and p.get("motivo") == "hesitação")
     regr = sum(1 for a in achados if a[0] == R.MOTIVO)

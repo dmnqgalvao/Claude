@@ -1137,7 +1137,12 @@ function efeitosPrevia() {
   const out = paraSaida(video.currentTime);
   const ef = Motion.efeitoBase(S.plano.camadas, out);
   const segAtual = segDe(video.currentTime);
-  if (segAtual && segAtual.zoom > 1.001) { if (ef.z === 1) { ef.fx = .5; ef.fy = .42; } ef.z *= segAtual.zoom; }
+  if (segAtual && segAtual.zoom > 1.001) {
+    const z = segAtual.zoom, f = segAtual.foco;
+    // recorte do plano fechado: o canto (f) vira a origem; escalar em volta de f*z/(z-1) dá o mesmo resultado
+    if (ef.z === 1) { ef.fx = f ? f[0] * z / (z - 1) : .5; ef.fy = f ? f[1] * z / (z - 1) : .42; }
+    ef.z *= z;
+  }
   const vel = S.plano.velocidade || 1;
   if (Math.abs(video.playbackRate - vel) > .001) { video.playbackRate = vel; fundo.playbackRate = vel; }
   const tv = $(".tela-video");
@@ -1255,8 +1260,19 @@ function arquivoNoTempo(t) {
   return arqs.find(a => t >= a.ini && t < a.fim) || arqs[arqs.length - 1] || null;
 }
 function quadroDe(a) {
-  const q = { zoom: 1, x: .5, y: .5, ...(a?.quadro || {}) };
-  return { zoom: Math.max(.5, Math.min(4, +q.zoom)), x: Math.max(0, Math.min(1, +q.x)), y: Math.max(0, Math.min(1, +q.y)) };
+  if (a?.quadro) {
+    const q = { zoom: 1, x: .5, y: .5, ...a.quadro };
+    return { zoom: Math.max(.5, Math.min(4, +q.zoom)), x: Math.max(0, Math.min(1, +q.x)), y: Math.max(0, Math.min(1, +q.y)) };
+  }
+  // sem ajuste manual: centraliza o rosto quando sobra imagem (mesma conta de projeto.py)
+  const q = { zoom: 1, x: .5, y: .5 }, r = a?.rosto;
+  if (r && S.proj?.formato?.enquadramento !== "ajustar") {
+    const W = +a.info?.largura || 1080, H = +a.info?.altura || 1920, base = Math.max(1080 / W, 1920 / H);
+    const dw = W * base / 1080, dh = H * base / 1920;
+    if (dw > 1.001) q.x = Math.max(0, Math.min(1, (.5 - r.x * dw) / (1 - dw)));
+    if (dh > 1.001) q.y = Math.max(0, Math.min(1, (.4 - r.y * dh) / (1 - dh)));
+  }
+  return q;
 }
 function retanguloArquivo(a, ajustar, capa) {
   const W = +a?.info?.largura || 1080, H = +a?.info?.altura || 1920;

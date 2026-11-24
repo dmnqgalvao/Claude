@@ -620,6 +620,30 @@ def cmd_regravacoes(a):
     P.salvar(a.projeto, proj)
 
 
+def cmd_revisar(a):
+    from . import regravacoes as R
+    proj = P.carregar(a.projeto)
+    linhas = R.revisar(proj["palavras"])
+    for ln in linhas:
+        if not a.so_avisos or "⚠" in ln:
+            print(ln)
+    n = sum(1 for ln in linhas if "⚠" in ln)
+    print(f"\n{len(linhas)} frases, {n} com aviso pra conferir", file=sys.stderr)
+
+
+def cmd_rosto(a):
+    from . import rosto
+    proj = P.carregar(a.projeto)
+    if a.refazer:
+        for arq in proj.get("arquivos") or []:
+            arq.pop("rosto", None)
+    rosto.marcar_arquivos(proj, log=lambda m: print(m, file=sys.stderr))
+    P.salvar(a.projeto, proj)
+    for arq in proj.get("arquivos") or []:
+        r = arq.get("rosto")
+        print(f"{arq['nome']}: " + (f"olhos em x {r['x']:.2f}, y {r['y']:.2f}" if r else "sem rosto"))
+
+
 def cmd_sons(a):
     from . import estilos as E
     disponiveis = E.sons_disponiveis(dados_dir())
@@ -773,6 +797,10 @@ def main(argv=None):
     s.add_argument("--sons-auto", choices=["sim", "nao"])
     s.add_argument("--enquadramento", choices=["preencher", "ajustar"])
     s.add_argument("--sem-legenda", action="store_true"); s.set_defaults(f=cmd_ajustar)
+    s = sub.add_parser("revisar"); s.add_argument("projeto"); s.add_argument("--so-avisos", action="store_true")
+    s.set_defaults(f=cmd_revisar)
+    s = sub.add_parser("rosto"); s.add_argument("projeto"); s.add_argument("--refazer", action="store_true")
+    s.set_defaults(f=cmd_rosto)
     s = sub.add_parser("regravacoes"); s.add_argument("projeto")
     s.add_argument("--refazer", action="store_true"); s.add_argument("--desfazer", action="store_true")
     s.set_defaults(f=cmd_regravacoes)

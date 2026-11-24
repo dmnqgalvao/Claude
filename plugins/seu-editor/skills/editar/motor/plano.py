@@ -9,6 +9,7 @@ exportar, então o que a pessoa vê é o que sai.
 import re
 
 from . import estilos as E
+from . import projeto as P
 
 PONTUACAO_FINAL = re.compile(r"[.!?…]$")
 PONTUACAO_PAUSA = re.compile(r"[,;:]$")
@@ -131,7 +132,7 @@ def calcular_segmentos(proj):
         saida.append({"ini": round(ini, 3), "fim": round(fim, 3), "out": round(acumulado, 4), "vel": vel, "zoom": 1.0,
                       "arq": arq})
         acumulado += (fim - ini) / vel
-    zoom_nos_cortes(saida, aj.get("zoom_cortes") or {})
+    zoom_nos_cortes(saida, aj.get("zoom_cortes") or {}, palavras)
     return saida
 
 
@@ -176,21 +177,67 @@ def encaixar_arquivos(proj, segs):
     return quebrados
 
 
-def zoom_nos_cortes(segs, cfg):
-    """Punch-in pela escala do corte, sem animação: alterna plano normal e plano fechado,
-    espalhado de forma regular, nunca dois seguidos (como na edição de referência)."""
-    if not cfg.get("ativo") or len(segs) < 3:
+def _frases_dos_segmentos(segs, palavras):
+    """Número da frase em que cada segmento começa. Frase nova quando a palavra anterior
+    (que ficou no vídeo) termina com ponto, interrogação ou exclamação, ou depois de uma
+    pausa longa na gravação, ou quando muda de arquivo."""
+    vivas = [p for p in palavras if not p.get("cortada")]
+    frase, ids, k, ant = 0, [], 0, None
+    for i, s in enumerate(segs):
+        while k < len(vivas) and vivas[k]["fim"] <= s["ini"] + 0.02:
+            ant = vivas[k]
+            k += 1
+        prim = vivas[k] if k < len(vivas) and vivas[k]["ini"] < s["fim"] else None
+        if i > 0 and (prim is None or ant is None or PONTUACAO_FINAL.search(ant["t"].strip())
+                      or prim["ini"] - ant["fim"] > 1.2 or s.get("arq") != segs[i - 1].get("arq")):
+            frase += 1
+        ids.append(frase)
+    return ids
+
+
+def zoom_nos_cortes(segs, cfg, palavras=()):
+    """Punch-in pela escala do corte, sem animação. O zoom só muda quando começa uma frase
+    nova: dentro da mesma frase todos os cortes ficam no mesmo plano, pra não quebrar o
+    raciocínio. Alterna plano normal e fechado entre as frases, nunca duas fechadas seguidas."""
+    if not cfg.get("ativo") or len(segs) < 2:
         return
-    freq = max(0.0, min(0.5, float(cfg.get("frequencia", 0.35))))
+    freq = max(0.0, min(0.6, float(cfg.get("frequencia", 0.35)) * 1.4))
     forte = float(cfg.get("intensidade", 1.3))
     leve = 1 + (forte - 1) * 0.72
-    n = 0
-    for k, s in enumerate(segs):
-        if k == 0 or (s["fim"] - s["ini"]) < 0.45 or segs[k - 1]["zoom"] > 1:
-            continue
-        if int((k + 1) * freq) > int(k * freq):
-            s["zoom"] = round(forte if n % 2 == 0 else leve, 3)
+    ids = _frases_dos_segmentos(segs, palavras) if palavras else list(range(len(segs)))
+    n_frases = ids[-1] + 1 if ids else 0
+    nivel = {}
+    n, anterior = 0, 1.0
+    for f in range(n_frases):
+        dur = sum(s["fim"] - s["ini"] for s, i in zip(segs, ids) if i == f)
+        z = 1.0
+        if f > 0 and anterior == 1.0 and dur >= 0.6 and int((f + 1) * freq) > int(f * freq):
+            z = round(forte if n % 2 == 0 else leve, 3)
             n += 1
+        nivel[f] = anterior = z
+    for s, i in zip(segs, ids):
+        s["zoom"] = nivel.get(i, 1.0)
+
+
+def aplicar_foco(segs, proj):
+    """Recorte de cada plano fechado: centraliza o rosto (olhos um pouco acima do meio)
+    sem sair da imagem. Sem rosto conhecido, usa o centro com o terço de cima."""
+    arqs = proj.get("arquivos") or []
+    ajustar = proj.get("formato", {}).get("enquadramento") == "ajustar"
+    for s in segs:
+        z = float(s.get("zoom", 1.0))
+        if z <= 1.001:
+            s.pop("foco", None)
+            continue
+        a = arqs[s.get("arq", 0)] if s.get("arq", 0) < len(arqs) else None
+        r = P.rosto_na_tela(a, ajustar) if a else None
+        if r:
+            lim = 1 - 1 / z
+            cx = max(0.0, min(lim, r[0] - P.ALVO_ROSTO[0] / z))
+            cy = max(0.0, min(lim, r[1] - P.ALVO_ROSTO[1] / z))
+            s["foco"] = [round(cx, 4), round(cy, 4)]
+        else:
+            s["foco"] = [round((1 - 1 / z) / 2, 4), round((1 - 1 / z) * 0.42, 4)]
 
 
 def _para_saida(t, segs, idx_seg):
@@ -369,6 +416,7 @@ def montar_plano(proj):
                 if fim_s > c["ini_out"] + 0.05 and s["out"] < c["fim_out"] - 0.05:
                     s["zoom"] = passos[min(n, len(passos) - 1)]
                     n += 1
+    aplicar_foco(segs, proj)
 
     gancho = None
     g = proj.get("gancho", {})

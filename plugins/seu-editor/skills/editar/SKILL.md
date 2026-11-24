@@ -143,6 +143,16 @@ e fala de novo: corta a tentativa anterior inteira, desde a primeira palavra) e 
    só o começo: se sobrar meia frase errada, a pessoa ouve.
 2. confira se o detector não cortou repetição de propósito (anáfora, ênfase). Se cortou,
    devolva com `ed manter "$PRJ" 40-46`.
+3. **revisão obrigatória, frase por frase**: rode `ed revisar "$PRJ"`. Ele mostra o texto
+   que ficou, uma frase por linha com os índices, e marca com ⚠ o que parece erro: frase
+   que começa igual a uma anterior, frase parecida com a seguinte, frase que termina no
+   meio com pausa, palavra repetida perto e palavra que o reconhecimento entendeu mal
+   (fala embolada costuma ser palavra errada que ela corrigiu logo depois). Leia TODAS as
+   frases, não só as marcadas, como se fosse a pessoa assistindo: qualquer pedaço que ela
+   regravaria, qualquer palavra trocada que ela corrigiu na sequência ("o meu... a minha"),
+   qualquer frase que não faz sentido sozinha sai. Rode `ed revisar` de novo depois de
+   cortar e só siga quando não sobrar nenhum erro. Esse é o diferencial do editor: a pessoa
+   não pode precisar caçar erro na revisão dela.
 ```bash
 ed cortar "$PRJ" 25-30 --motivo regravação
 ed regravacoes "$PRJ"             # roda o detector de novo (depois de mexer na transcrição)
@@ -279,8 +289,13 @@ cor quente e nítida. **Velocidade fica normal**: só acelere (1,1× a 1,3×) se
 frases). Toda frase refeita sai, fica a última versão. Nenhuma transição. Se o vídeo
 começa com "oi", apresentação ou "deixa eu ver", corte: o vídeo abre direto no gancho.
 
-**Zoom.** O zoom nos cortes já vem ligado: alterna plano normal e plano fechado em ~35%
-dos cortes, nunca dois seguidos. Na fala sentada ou de perto, use 1,3 a 1,5
+**Zoom.** O zoom nos cortes já vem ligado e respeita a frase: o plano só muda quando
+começa uma frase nova (dentro da mesma frase todos os cortes ficam no mesmo zoom), alterna
+normal e fechado, nunca dois fechados seguidos. O recorte do plano fechado centraliza o
+rosto (achado sozinho na transcrição; `ed rosto "$PRJ"` refaz) e o vídeo fica parado: nada
+de zoom animado ou tremida sem a pessoa pedir, ela grava de tripé e movimento à toa
+derruba a retenção. A pontuação da transcrição define as frases: se uma frase longa
+precisar de troca de plano no meio, é sinal de que a pontuação veio errada. Na fala sentada ou de perto, use 1,3 a 1,5
 (`ed ajustar "$PRJ" --zoom-cortes 1.4`). Em plano aberto, 1,08 a 1,12. Em selfie andando,
 pessoa recortada ou vídeo só de narração com imagens, desligue (`--zoom-cortes 1`). Na
 frase de maior ênfase, faça uma escada de zoom: `{"tipo":"efeito","efeito":"escada","palavra":N,"duracao":2.5}`.
