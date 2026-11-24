@@ -75,6 +75,17 @@ Se você não disser o estilo, o Claude pergunta qual dos 5 você quer enquanto 
 
 Quando a primeira edição fica pronta, a interface abre sozinha no navegador. Se não abrir, o Claude te passa o endereço (normalmente http://127.0.0.1:4848).
 
+### Conferir e confirmar
+
+Toda vez que o Claude termina uma rodada de edição, ele te manda no chat o endereço da interface e quatro passos:
+
+1. a edição está pronta no endereço
+2. confira como ficou e ajuste o que quiser lá
+3. clique em **confirmar alterações** (no topo da interface ou na aba exportar); se quiser, deixe um recado pro Claude ali, tipo "deixa a música mais baixa"
+4. volte pro chat e escreva **conferi**
+
+Aí o Claude vê o seu recado e tudo o que você mudou (cortes, camadas, gancho, legenda, estilo, cor e enquadramento), atende o pedido e segue. Quando você aprovar, ele exporta o vídeo final.
+
 ## 5. Tipos de vídeo
 
 ### Vídeo falado pra câmera

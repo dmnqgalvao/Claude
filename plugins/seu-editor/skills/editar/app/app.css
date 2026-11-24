@@ -463,3 +463,8 @@ input[type=text] { border: 1px solid var(--linha); border-radius: 14px; padding:
 .faixa-versao ul { margin: 4px 0 0; padding-left: 18px; }
 .faixa-versao code { background: #fff; padding: 2px 8px; border-radius: 999px; font-size: 13px; }
 .faixa-versao .fechar { margin-left: auto; border: 0; background: none; font-size: 20px; cursor: pointer; color: inherit; }
+
+/* confirmar alterações pro claude */
+.confirmar-cartao textarea { width: 100%; margin: 8px 0 12px; }
+#btn-confirmar-topo { margin-right: 8px; }
+#confirmado-msg { margin-top: 10px; font-weight: 600; color: var(--rosa-forte, #c2366f); }

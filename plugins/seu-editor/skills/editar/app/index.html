@@ -20,6 +20,7 @@
     <button class="aba" data-aba="exportar" role="tab"><span class="num">05</span> exportar</button>
   </nav>
   <div class="status" id="status"><span class="ponto"></span><span id="status-txt">conectando</span></div>
+  <button class="btn borda" id="btn-confirmar-topo" title="confirmar suas alterações pro claude">confirmar alterações</button>
   <button class="btn escuro" id="btn-exportar-topo">exportar <span class="seta">→</span></button>
 </header>
 
@@ -283,6 +284,14 @@
       <p class="sobrancelha">05 · exportar</p>
       <h1 class="titulo">PRONTO PRA <em>postar</em></h1>
       <p class="apoio">a prévia sai rápido e serve pra conferir. o vídeo final sai em 1080 x 1920, do jeito que o instagram e o tiktok pedem.</p>
+
+      <div class="cartao leo-borda-fina confirmar-cartao" id="confirmar-cartao">
+        <p class="rotulo">terminou de conferir?</p>
+        <p class="mini">confirme suas alterações e depois volte pro chat do claude e diga que conferiu. ele vê tudo o que você mudou e segue daí.</p>
+        <textarea id="recado" rows="2" placeholder="recado pro claude (opcional): ex. troca a música, deixa o gancho mais curto"></textarea>
+        <button class="btn escuro" id="confirmar">confirmar alterações</button>
+        <p class="mini" id="confirmado-msg" hidden></p>
+      </div>
 
       <div class="duas">
         <div class="cartao">

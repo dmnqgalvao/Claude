@@ -637,6 +637,21 @@ def cmd_regravacoes(a):
     P.salvar(a.projeto, proj)
 
 
+def cmd_entregar(a):
+    from . import revisao as R
+    R.entregar(a.projeto)
+    print("vez da pessoa: ela confere na interface, confirma e avisa no chat")
+
+
+def cmd_revisao(a):
+    from . import revisao as R
+    e = P.ler_estado(a.projeto)
+    if not e.get("confirmado"):
+        print("(ela ainda não clicou em confirmar alterações na interface; o resumo abaixo é do que mudou até agora)")
+    print(R.resumo(a.projeto, e.get("recado")))
+    R.entregar(a.projeto) if a.nova_rodada else None
+
+
 def cmd_versao(a):
     from . import versao as V
     print(json.dumps(V.checar(dados_dir(), forcar=a.agora), ensure_ascii=False))
@@ -820,6 +835,9 @@ def main(argv=None):
     s.add_argument("--enquadramento", choices=["preencher", "ajustar"])
     s.add_argument("--sem-legenda", action="store_true"); s.set_defaults(f=cmd_ajustar)
     s = sub.add_parser("versao"); s.add_argument("--agora", action="store_true"); s.set_defaults(f=cmd_versao)
+    s = sub.add_parser("entregar"); s.add_argument("projeto"); s.set_defaults(f=cmd_entregar)
+    s = sub.add_parser("revisao"); s.add_argument("projeto"); s.add_argument("--nova-rodada", action="store_true")
+    s.set_defaults(f=cmd_revisao)
     s = sub.add_parser("revisar"); s.add_argument("projeto"); s.add_argument("--so-avisos", action="store_true")
     s.set_defaults(f=cmd_revisar)
     s = sub.add_parser("rosto"); s.add_argument("projeto"); s.add_argument("--refazer", action="store_true")

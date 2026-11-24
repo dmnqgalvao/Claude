@@ -423,12 +423,30 @@ e sugira começar o vídeo nele.
 Depois de montar, gere a prévia (`ed exportar "$PRJ" --previa`), olhe 3 ou 4 quadros e
 corrija o que ficou poluído, ilegível ou fora do lugar antes de mostrar pra pessoa.
 
+**Passar a vez pra pessoa (sempre, ao fim de cada rodada de edição).** Rode
+`ed entregar "$PRJ"` e mande no chat, com o endereço da interface, os 4 passos:
+1. "a primeira edição está pronta em <endereço>"
+2. "confira como ficou e ajuste o que quiser lá"
+3. "quando terminar, clique em **confirmar alterações** (no topo ou na aba exportar); se
+   quiser, deixe um recado pra mim ali"
+4. "depois volte aqui e me diga que conferiu"
+Diga em poucas linhas o que você fez (quanto tempo saiu, regravações, gancho, camadas) e
+pare. Não exporte nem siga mexendo enquanto ela confere.
+
+Quando ela disser que conferiu ("conferi", "pronto", "pode seguir"), rode
+`ed revisao "$PRJ"`: ele mostra o recado e tudo o que ela mudou desde a entrega (cortes,
+camadas, gancho, legenda, estilo, cor, enquadramento). Use isso pra entender o gosto dela,
+atenda o recado e responda no chat. Se ainda houver ajuste seu, faça, rode
+`ed revisao "$PRJ" --nova-rodada` e repita os 4 passos. Se ela aprovou, exporte o vídeo
+final (ou pergunte se ela quer que você exporte). Se ela disser que conferiu sem ter clicado
+em confirmar, o resumo funciona do mesmo jeito.
+
 ## 4. Estilo, fontes e cores
 
 Cada estilo é uma dupla de fontes: **destaque** (gancho, títulos, palavras de impacto) e
 **texto** (legenda, frases, botões). Estilos prontos: `cool` (Bootzy TM + Helvetica),
-`star` (Open Sauce Bold + Courier New Bold), `basic` (condensada Oswald + Futura) e `glow`
-(Helvetica Bold + Instrument Serif).
+`star` (Open Sauce Bold + Courier New Bold), `basic` (condensada Oswald + Futura), `glow`
+(Helvetica Bold + Instrument Serif) e `domi` (Alte Haas Grotesk Bold + Open Sauce).
 
 ```bash
 ed estilo "$PRJ" glow

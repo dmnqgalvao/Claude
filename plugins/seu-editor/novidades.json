@@ -1,21 +1,43 @@
 [
-  {"versao": "0.12.0", "itens": [
-    "aviso de versão nova na interface e no chat, com o que mudou"
-  ]},
-  {"versao": "0.11.3", "itens": [
-    "legenda com letras como falei, tudo minúsculo ou caixa alta",
-    "o gancho aparece na prévia enquanto você mexe nele"
-  ]},
-  {"versao": "0.11.2", "itens": [
-    "a exportação se recupera sozinha quando o navegador invisível some"
-  ]},
-  {"versao": "0.11.0", "itens": [
-    "legenda empilhada palavra por palavra, padrão do vídeo narrado",
-    "narração pode vir em áudio ou em vídeo"
-  ]},
-  {"versao": "0.10.0", "itens": [
-    "rosto centralizado no enquadramento e no zoom",
-    "zoom só muda quando começa uma frase nova",
-    "corte de erros, repetições e recomeços muito mais minucioso"
-  ]}
+  {
+    "versao": "0.13.0",
+    "itens": [
+      "botão confirmar alterações: você confere na interface, confirma com um recado e avisa no chat que conferiu",
+      "o claude vê tudo o que você mudou e segue a partir daí"
+    ]
+  },
+  {
+    "versao": "0.12.0",
+    "itens": [
+      "aviso de versão nova na interface e no chat, com o que mudou"
+    ]
+  },
+  {
+    "versao": "0.11.3",
+    "itens": [
+      "legenda com letras como falei, tudo minúsculo ou caixa alta",
+      "o gancho aparece na prévia enquanto você mexe nele"
+    ]
+  },
+  {
+    "versao": "0.11.2",
+    "itens": [
+      "a exportação se recupera sozinha quando o navegador invisível some"
+    ]
+  },
+  {
+    "versao": "0.11.0",
+    "itens": [
+      "legenda empilhada palavra por palavra, padrão do vídeo narrado",
+      "narração pode vir em áudio ou em vídeo"
+    ]
+  },
+  {
+    "versao": "0.10.0",
+    "itens": [
+      "rosto centralizado no enquadramento e no zoom",
+      "zoom só muda quando começa uma frase nova",
+      "corte de erros, repetições e recomeços muito mais minucioso"
+    ]
+  }
 ]

@@ -2,6 +2,7 @@
 
 
 import json
+import time
 import mimetypes
 import os
 import re
@@ -171,6 +172,11 @@ class Estudio(BaseHTTPRequestHandler):
         rota = urlparse(self.path).path
         if rota == "/api/plano":
             return self._json(PL.montar_plano(P.normalizar(self._corpo())))
+        if rota == "/api/confirmar":
+            corpo = self._corpo()
+            P.escrever_estado(self.pasta, confirmado=time.time(), recado=(corpo.get("recado") or "").strip() or None,
+                              revisao="confirmada", mensagem="alterações confirmadas: avise no chat que conferiu")
+            return self._json({"ok": True})
         if rota == "/api/exportar":
             previa = bool(self._corpo().get("previa"))
             if not self.exportando.acquire(blocking=False):

@@ -1621,6 +1621,20 @@ $("#salvar-marca").onclick = async () => {
 };
 $("#ver-zonas").onchange = e => { $("#zonas").hidden = !e.target.checked; };
 
+/* ============================================================ confirmar alterações pro claude */
+async function confirmarAlteracoes() {
+  clearTimeout(tSalvar); await salvar();
+  const recado = $("#recado").value;
+  const r = await api("POST", "/api/confirmar", { recado });
+  if (!r.ok) { aviso("não consegui confirmar agora, tente de novo"); return; }
+  const msg = $("#confirmado-msg");
+  msg.textContent = "alterações confirmadas. agora volte pro chat do claude e escreva \"conferi\" pra ele continuar.";
+  msg.hidden = false;
+  aviso("confirmado. volte pro chat e diga que conferiu");
+}
+$("#confirmar").onclick = confirmarAlteracoes;
+$("#btn-confirmar-topo").onclick = () => { $$(".aba").find(b => b.dataset.aba === "exportar")?.click(); $("#recado").focus(); };
+
 /* ============================================================ exportar */
 async function exportar(previa) {
   await salvar();
