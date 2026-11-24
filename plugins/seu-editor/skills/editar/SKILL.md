@@ -1,6 +1,6 @@
 ---
 name: editar
-description: Edita vídeos falados em português (Reels, TikTok, Shorts) com interface visual. Palavra mágica "tcham" — quando a pessoa escrever "tcham" (ex. "edita o vídeo com tcham", "tcham nesse vídeo", "tcham no estilo da Marina"), use SEMPRE esta skill. Use também sempre que ela pedir pra editar, cortar, legendar, montar ou deixar pronto pra postar um vídeo, do jeito que escrever, ou citar o Seu Editor. O vídeo pode vir como link do Google Drive ou Dropbox, caminho, arquivo arrastado ou só uma descrição ("o que acabei de gravar", "tá nos downloads"). Corta pausas e regravações, coloca legenda, gancho, destaques, insertos, zoom, sons e cor, e exporta em 1080x1920.
+description: Edita vídeos falados em português (Reels, TikTok, Shorts) com interface visual. Palavra mágica "tcham" (também escrita "tchan", "tchã" ou "tcham!") — quando a pessoa escrever "tcham" (ex. "edita o vídeo com tcham", "tcham nesse vídeo", "tcham no estilo da Marina"), use SEMPRE esta skill. Use também sempre que ela pedir pra editar, cortar, legendar, montar ou deixar pronto pra postar um vídeo, do jeito que escrever, ou citar o Seu Editor. O vídeo pode vir como link do Google Drive ou Dropbox, caminho, arquivo arrastado ou só uma descrição ("o que acabei de gravar", "tá nos downloads"). Corta pausas e regravações, coloca legenda, gancho, destaques, insertos, zoom, sons e cor, e exporta em 1080x1920.
 argument-hint: "[caminho do vídeo]"
 ---
 
