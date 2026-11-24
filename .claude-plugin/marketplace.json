@@ -7,9 +7,9 @@
   },
   "plugins": [
     {
-      "name": "corte-seco",
-      "source": "./plugins/corte-seco",
-      "description": "Estúdio de edição de vídeo falado em português, com interface no navegador."
+      "name": "seu-editor",
+      "source": "./plugins/seu-editor",
+      "description": "Editor de vídeo falado em português, com interface no navegador."
     }
   ]
 }

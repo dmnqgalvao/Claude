@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>render</title>
+<link rel="stylesheet" href="/app/motion.css">
+<style>
+  html, body { margin: 0; background: transparent; overflow: hidden; }
+  #palco { position: absolute; left: 0; top: 0; }
+</style>
+</head>
+<body>
+<div id="palco"><div class="tela" id="tela"></div></div>
+<script src="/app/motion.js"></script>
+<script>
+  /* Página usada só na exportação: o navegador invisível chama quadro(t)
+     e fotografa o resultado com fundo transparente. */
+  let CTX = null;
+  window.preparar = async ({ estilos, proj, plano, largura }) => {
+    Motion.configurar(estilos);
+    CTX = { proj, plano, base: "", videos: false, tocando: false };
+    const tela = document.getElementById("tela");
+    tela.style.transform = `scale(${largura / 1080})`;
+    await Motion.preparar(CTX);
+    Motion.cena(tela, CTX, 0);
+    return true;
+  };
+  window.quadro = t => Motion.cena(document.getElementById("tela"), CTX, t);
+</script>
+</body>
+</html>

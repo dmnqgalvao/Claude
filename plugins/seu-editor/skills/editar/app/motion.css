@@ -1,0 +1,48 @@
+/* fontes e camadas desenhadas por motion.js (prévia e exportação) */
+@font-face { font-family: "Arimo"; src: url(/fontes/Arimo.ttf); font-weight: 400 700; }
+@font-face { font-family: "Anton"; src: url(/fontes/Anton-Regular.ttf); }
+@font-face { font-family: "Caveat Brush"; src: url(/fontes/CaveatBrush-Regular.ttf); }
+@font-face { font-family: "Bebas Neue"; src: url(/fontes/BebasNeue-Regular.ttf); }
+@font-face { font-family: "Bodoni Moda"; src: url(/fontes/BodoniModa.ttf); font-weight: 400 900; }
+@font-face { font-family: "Bodoni Moda"; src: url(/fontes/BodoniModa-Italic.ttf); font-weight: 400 900; font-style: italic; }
+@font-face { font-family: "Montserrat"; src: url(/fontes/Montserrat.ttf); font-weight: 100 900; }
+@font-face { font-family: "Poppins"; src: url(/fontes/Poppins-ExtraBold.ttf); font-weight: 800; }
+@font-face { font-family: "Poppins"; src: url(/fontes/Poppins-Black.ttf); font-weight: 900; }
+@font-face { font-family: "Jost"; src: url(/fontes/Jost.ttf); font-weight: 100 900; }
+@font-face { font-family: "DM Serif Display"; src: url(/fontes/DMSerifDisplay-Regular.ttf); }
+@font-face { font-family: "DM Serif Display"; src: url(/fontes/DMSerifDisplay-Italic.ttf); font-style: italic; }
+@font-face { font-family: "Permanent Marker"; src: url(/fontes/PermanentMarker-Regular.ttf); }
+@font-face { font-family: "Tinos"; src: url(/fontes/Tinos-Regular.ttf); font-weight: 400; }
+@font-face { font-family: "Tinos"; src: url(/fontes/Tinos-Bold.ttf); font-weight: 700; }
+@font-face { font-family: "Cabin Sketch"; src: url(/fontes/CabinSketch-Bold.ttf); font-weight: 400 700; }
+@font-face { font-family: "Pinyon Script"; src: url(/fontes/PinyonScript-Regular.ttf); }
+@font-face { font-family: "Open Sans"; src: url(/fontes/OpenSans.ttf); font-weight: 300 800; }
+@font-face { font-family: "Bricolage Grotesque"; src: url(/fontes/BricolageGrotesque.ttf); font-weight: 200 800; }
+@font-face { font-family: "Space Mono"; src: url(/fontes/SpaceMono-Regular.ttf); font-weight: 400; }
+@font-face { font-family: "Space Mono"; src: url(/fontes/SpaceMono-Bold.ttf); font-weight: 700; }
+@font-face { font-family: "Courier Prime"; src: url(/fontes/CourierPrime-Bold.ttf); font-weight: 700; }
+
+.tela { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; transform-origin: 0 0; overflow: hidden; }
+.tela > * { position: absolute; }
+
+.m-leg {
+  left: 90px; right: 90px; text-align: center; transform: translateY(-50%);
+  white-space: normal; overflow-wrap: break-word;
+}
+.m-leg .caixa, .m-txt .caixa, .m-imp .caixa { box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+.m-txt { text-align: center; width: max-content; white-space: normal; }
+.m-imp { text-align: center; white-space: nowrap; }
+
+.m-cartao {
+  background: #fff; padding: 14px; border-radius: 6px;
+  box-shadow: 0 24px 48px -12px rgba(0, 0, 0, .45), 0 2px 6px rgba(0, 0, 0, .2);
+}
+.m-cartao img, .m-cartao video { display: block; width: 100%; height: auto; border-radius: 2px; }
+
+.m-tela-cheia { left: 0; top: 0; width: 1080px; height: 1920px; overflow: hidden; background: #000; }
+.m-tela-cheia img, .m-tela-cheia video { width: 100%; height: 100%; object-fit: cover; display: block; transform-origin: 50% 50%; }
+
+.m-desenho { overflow: visible; height: auto; }
+.m-svg-cheio { left: 0; top: 0; width: 1080px; height: 1920px; overflow: visible; }
+
+.m-selecionada { outline: 6px dashed #fb76b2; outline-offset: 14px; }

@@ -1,0 +1,380 @@
+"""Linha de comando do Seu Editor. É por aqui que o Claude mexe no projeto.
+
+Uso: python -m motor.cli <comando> ...   (rodar de dentro da pasta da skill)
+
+Comandos:
+  novo VIDEO [--nome N] [--base PASTA]      cria o projeto e mostra a pasta dele
+  transcrever PROJETO [--modelo M]          transcreve com o tempo de cada palavra
+  servir PROJETO [--porta P] [--nao-abrir]  abre a interface no navegador
+  texto PROJETO                             mostra a transcrição numerada
+  cortar PROJETO 12-18 25 [--motivo M]      corta palavras (intervalos de índices)
+  manter PROJETO 12-18                      desfaz o corte dessas palavras
+  destacar PROJETO 30 41-42 [--remover]     marca palavras de destaque na legenda
+  gancho PROJETO "texto" [--duracao 3]      define o gancho escrito do início
+  sugerir PROJETO "gancho 1" "gancho 2"...  deixa sugestões de gancho na interface
+  insertos PROJETO                          lista as fotos e vídeos da pasta insertos/
+  camada PROJETO '{"tipo": ...}'            cria ou atualiza uma camada (JSON, veja o SKILL.md)
+  camadas PROJETO                           lista as camadas com id, tipo e tempo
+  remover PROJETO ID [ID...]                apaga camadas
+  legenda PROJETO '{"cor": ...}'            muda o visual da legenda (JSON parcial)
+  estilo PROJETO classico|descolado|romantico|normal [--destaque ID] [--texto ID]
+  fontes                                    lista as fontes disponíveis (ids)
+  fonte "Nome no Google Fonts" | arquivo.ttf [--nome N]   instala uma fonte nova
+  ajustar PROJETO [--ritmo R] [--posicao 0.64] [--enquadramento ajustar] ...
+  status PROJETO "mensagem" [--livre]       mostra o que o Claude está fazendo
+  resumo PROJETO                            números do projeto
+  exportar PROJETO [--previa]               gera o mp4
+"""
+
+import argparse
+import json
+import os
+import re
+import sys
+
+if __package__ in (None, ""):
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    __package__ = "motor"
+
+from . import estilos as E          # noqa: E402
+from . import plano as PL           # noqa: E402
+from . import projeto as P          # noqa: E402
+
+
+def dados_dir():
+    return P.dados_dir()
+
+
+def marca_global():
+    try:
+        with open(os.path.join(dados_dir(), "marca.json"), encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {}
+
+
+def intervalos(itens, total):
+    idx = set()
+    for item in itens:
+        for parte in str(item).split(","):
+            parte = parte.strip()
+            if not parte:
+                continue
+            m = re.fullmatch(r"(\d+)\s*-\s*(\d+)", parte)
+            if m:
+                a, b = sorted((int(m.group(1)), int(m.group(2))))
+                idx.update(range(a, b + 1))
+            else:
+                idx.add(int(parte))
+    return sorted(i for i in idx if 0 <= i < total)
+
+
+def fmt_tempo(t):
+    m, s = divmod(t, 60)
+    return f"{int(m)}:{s:04.1f}"
+
+
+def cmd_novo(a):
+    if not os.path.exists(a.video):
+        sys.exit(f"vídeo não encontrado: {a.video}")
+    nome = a.nome or os.path.splitext(os.path.basename(a.video))[0]
+    base = a.base or os.path.join(os.getcwd(), "seu-editor")
+    pasta = os.path.join(base, re.sub(r"[^\w\-]+", "-", nome.lower()).strip("-") or "video")
+    sufixo, original = 2, pasta
+    while os.path.exists(pasta):
+        pasta = f"{original}-{sufixo}"
+        sufixo += 1
+    os.makedirs(pasta)
+    P.salvar(pasta, P.projeto_padrao(a.video, nome, marca_global()))
+    P.escrever_estado(pasta, mensagem="projeto criado", tarefa=None)
+    print(pasta)
+
+
+def cmd_transcrever(a):
+    from . import transcrever as T
+    modelos = os.path.join(dados_dir(), "modelos")
+    T.transcrever(a.projeto, modelo=a.modelo, dir_modelos=modelos)
+    proj = P.carregar(a.projeto)
+    print(f"{len(proj['palavras'])} palavras transcritas")
+
+
+def cmd_servir(a):
+    from . import servidor
+    servidor.servir(a.projeto, porta=a.porta, abrir=not a.nao_abrir, dados=dados_dir())
+
+
+def cmd_texto(a):
+    proj = P.carregar(a.projeto)
+    pal = proj["palavras"]
+    if not pal:
+        print("(sem transcrição ainda)")
+        return
+    linha = []
+    for k, p in enumerate(pal):
+        if k and p["ini"] - pal[k - 1]["fim"] > 0.6:
+            print(" ".join(linha))
+            print(f"   [pausa {p['ini'] - pal[k - 1]['fim']:.1f}s]")
+            linha = []
+        if not linha:
+            linha.append(f"({fmt_tempo(p['ini'])})")
+        t = p["t"]
+        if p.get("cortada"):
+            t = f"~{t}~"
+        if p.get("destaque"):
+            t = f"*{t}*"
+        linha.append(f"{p['i']}:{t}")
+    print(" ".join(linha))
+    print("\nlegenda: ~cortada~  *destaque*  (m:ss) início da linha no vídeo original")
+
+
+def _editar_palavras(a, campo, valor, motivo=None):
+    proj = P.carregar(a.projeto)
+    idx = intervalos(a.indices, len(proj["palavras"]))
+    for i in idx:
+        p = proj["palavras"][i]
+        p[campo] = valor
+        if campo == "cortada":
+            if valor:
+                p["motivo"] = motivo or "claude"
+                p["origem"] = "claude"
+            else:
+                p.pop("motivo", None)
+                p["origem"] = "claude"
+    P.salvar(a.projeto, proj)
+    return idx
+
+
+def cmd_cortar(a):
+    idx = _editar_palavras(a, "cortada", True, a.motivo)
+    print(f"{len(idx)} palavras cortadas ({a.motivo})")
+
+
+def cmd_manter(a):
+    idx = _editar_palavras(a, "cortada", False)
+    print(f"{len(idx)} palavras de volta")
+
+
+def cmd_destacar(a):
+    idx = _editar_palavras(a, "destaque", not a.remover)
+    print(f"{len(idx)} palavras {'sem' if a.remover else 'com'} destaque")
+
+
+def cmd_gancho(a):
+    proj = P.carregar(a.projeto)
+    proj["gancho"].update(ativo=bool(a.texto.strip()), texto=a.texto.strip())
+    if a.duracao:
+        proj["gancho"]["duracao"] = a.duracao
+    P.salvar(a.projeto, proj)
+    print("gancho definido")
+
+
+def cmd_sugerir(a):
+    proj = P.carregar(a.projeto)
+    proj.setdefault("sugestoes", {})["ganchos"] = [t.strip() for t in a.textos if t.strip()]
+    P.salvar(a.projeto, proj)
+    print(f"{len(proj['sugestoes']['ganchos'])} sugestões de gancho na interface")
+
+
+def _ler_json(texto):
+    try:
+        d = json.loads(texto)
+    except ValueError as e:
+        sys.exit(f"JSON inválido: {e}")
+    if not isinstance(d, dict):
+        sys.exit("o JSON precisa ser um objeto {...}")
+    return d
+
+
+def cmd_insertos(a):
+    from .servidor import listar_insertos
+    itens = listar_insertos(a.projeto)
+    if not itens:
+        print("(nenhum arquivo em insertos/. Peça pra pessoa arrastar fotos e vídeos na aba camadas,"
+              " ou copie os arquivos pra " + os.path.join(a.projeto, "insertos") + ")")
+    for it in itens:
+        caminho = os.path.join(a.projeto, "insertos", it["nome"])
+        extra = ""
+        if it["tipo"] == "video":
+            extra = f" · {P.sondar_video(caminho)['duracao']:.1f}s"
+        print(f"{it['tipo']:7} {it['nome']}{extra}  ->  {caminho}")
+
+
+def cmd_camada(a):
+    import random
+    proj = P.carregar(a.projeto)
+    c = _ler_json(a.json)
+    lista = proj.setdefault("camadas", [])
+    existente = next((x for x in lista if x.get("id") and x.get("id") == c.get("id")), None)
+    if existente:
+        for k, v in c.items():
+            if v is None:
+                existente.pop(k, None)
+            else:
+                existente[k] = v
+        c = existente
+    else:
+        if c.get("tipo") not in ("impacto", "imagem", "video", "desenho", "texto"):
+            sys.exit("tipo precisa ser impacto, imagem, video, desenho ou texto")
+        c.setdefault("id", c["tipo"][:3] + "".join(random.choice("abcdefghijkmnpqrstuvwxyz23456789") for _ in range(5)))
+        if c.get("palavra") is None and c.get("ini") is None:
+            c["ini"] = 0
+        lista.append(c)
+    P.salvar(a.projeto, proj)
+    print(c["id"])
+
+
+def cmd_camadas(a):
+    proj = P.carregar(a.projeto)
+    plano = PL.montar_plano(proj)
+    if not plano["camadas"]:
+        print("(nenhuma camada)")
+    for c in plano["camadas"]:
+        desc = c.get("texto") or c.get("arquivo") or c.get("forma") or ""
+        ancora = f"palavra {c['palavra']}" if c.get("palavra") is not None else f"{c.get('ini', 0)}s"
+        print(f"{c['id']:10} {c['tipo']:8} {fmt_tempo(c['ini_out'])}-{fmt_tempo(c['fim_out'])} ({ancora})  {desc}")
+
+
+def cmd_remover(a):
+    proj = P.carregar(a.projeto)
+    antes = len(proj.get("camadas", []))
+    proj["camadas"] = [c for c in proj.get("camadas", []) if c.get("id") not in set(a.ids)]
+    proj["titulos"] = []
+    P.salvar(a.projeto, proj)
+    print(f"{antes - len(proj['camadas'])} camadas removidas")
+
+
+def cmd_legenda(a):
+    proj = P.carregar(a.projeto)
+    proj["legenda"]["visual"].update(_ler_json(a.json))
+    P.salvar(a.projeto, proj)
+    print("visual da legenda atualizado")
+
+
+def cmd_fonte(a):
+    from . import fontes as F
+    if os.path.exists(a.nome_ou_arquivo):
+        fid = F.registrar(dados_dir(), [a.nome_ou_arquivo], a.nome or os.path.splitext(os.path.basename(a.nome_ou_arquivo))[0])
+    else:
+        fid = F.baixar_google(dados_dir(), a.nome_ou_arquivo)
+    print(fid)
+
+
+def cmd_fontes(a):
+    for fid, f in E.todas_as_fontes(dados_dir()).items():
+        print(f"{fid:18} {f['nome']}{'  (da pessoa)' if f.get('da_pessoa') else ''}")
+    print("\nestilos (dupla destaque + texto):")
+    for k in E.KITS:
+        print(f"  {k['id']:10} destaque={k['destaque']}  texto={k['texto']}")
+
+
+def cmd_estilo(a):
+    proj = P.carregar(a.projeto)
+    kit = next((k for k in E.KITS if k["id"] == a.estilo), None)
+    f = proj["fontes"]
+    if kit:
+        f.update(kit=kit["id"], destaque=kit["destaque"], texto=kit["texto"])
+    if a.destaque:
+        f.update(destaque=a.destaque, kit="personalizado")
+    if a.texto:
+        f.update(texto=a.texto, kit="personalizado")
+    P.salvar(a.projeto, proj)
+    print(f"destaque={f['destaque']} texto={f['texto']}")
+
+
+def cmd_ajustar(a):
+    proj = P.carregar(a.projeto)
+    if a.ritmo:
+        proj["ajustes"]["ritmo"] = a.ritmo
+        proj["ajustes"].update(P.RITMOS[a.ritmo])
+    if a.pausa_max is not None:
+        proj["ajustes"].update(pausa_max=a.pausa_max, ritmo="personalizado")
+    if a.folga is not None:
+        proj["ajustes"].update(folga=a.folga, ritmo="personalizado")
+    if a.posicao is not None:
+        proj["legenda"]["posicao"] = a.posicao
+    if a.enquadramento:
+        proj["formato"]["enquadramento"] = a.enquadramento
+    if a.sem_legenda:
+        proj["legenda"]["ativa"] = False
+    P.salvar(a.projeto, proj)
+    print("ajustes salvos")
+
+
+def cmd_status(a):
+    P.escrever_estado(a.projeto, claude={"trabalhando": not a.livre, "mensagem": a.mensagem})
+    print("ok")
+
+
+def cmd_resumo(a):
+    proj = P.carregar(a.projeto)
+    plano = PL.montar_plano(proj)
+    motivos = {}
+    for p in proj["palavras"]:
+        if p.get("cortada"):
+            motivos[p.get("motivo", "?")] = motivos.get(p.get("motivo", "?"), 0) + 1
+    print(json.dumps({
+        "original": fmt_tempo(plano["duracao_original"]),
+        "editado": fmt_tempo(plano["duracao_saida"]),
+        "cortes": plano["cortes"],
+        "palavras": len(proj["palavras"]),
+        "palavras_cortadas": motivos,
+        "fonte_legenda": proj["legenda"]["visual"].get("fonte"),
+        "ritmo": proj["ajustes"]["ritmo"],
+        "gancho": proj["gancho"]["texto"] if proj["gancho"]["ativo"] else None,
+        "camadas": len(plano["camadas"]),
+    }, ensure_ascii=False, indent=1))
+
+
+def cmd_exportar(a):
+    from . import render
+    print(render.exportar(a.projeto, previa=a.previa, log=lambda m: print(m, file=sys.stderr)))
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(prog="seu-editor", description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = ap.add_subparsers(dest="cmd", required=True)
+
+    s = sub.add_parser("novo"); s.add_argument("video"); s.add_argument("--nome"); s.add_argument("--base")
+    s.set_defaults(f=cmd_novo)
+    s = sub.add_parser("transcrever"); s.add_argument("projeto"); s.add_argument("--modelo", default="large-v3-turbo")
+    s.set_defaults(f=cmd_transcrever)
+    s = sub.add_parser("servir"); s.add_argument("projeto"); s.add_argument("--porta", type=int, default=4848)
+    s.add_argument("--nao-abrir", action="store_true"); s.set_defaults(f=cmd_servir)
+    s = sub.add_parser("texto"); s.add_argument("projeto"); s.set_defaults(f=cmd_texto)
+    s = sub.add_parser("cortar"); s.add_argument("projeto"); s.add_argument("indices", nargs="+")
+    s.add_argument("--motivo", default="claude"); s.set_defaults(f=cmd_cortar)
+    s = sub.add_parser("manter"); s.add_argument("projeto"); s.add_argument("indices", nargs="+")
+    s.set_defaults(f=cmd_manter)
+    s = sub.add_parser("destacar"); s.add_argument("projeto"); s.add_argument("indices", nargs="+")
+    s.add_argument("--remover", action="store_true"); s.set_defaults(f=cmd_destacar)
+    s = sub.add_parser("gancho"); s.add_argument("projeto"); s.add_argument("texto")
+    s.add_argument("--duracao", type=float); s.set_defaults(f=cmd_gancho)
+    s = sub.add_parser("sugerir"); s.add_argument("projeto"); s.add_argument("textos", nargs="+")
+    s.set_defaults(f=cmd_sugerir)
+    s = sub.add_parser("insertos"); s.add_argument("projeto"); s.set_defaults(f=cmd_insertos)
+    s = sub.add_parser("camada"); s.add_argument("projeto"); s.add_argument("json"); s.set_defaults(f=cmd_camada)
+    s = sub.add_parser("camadas"); s.add_argument("projeto"); s.set_defaults(f=cmd_camadas)
+    s = sub.add_parser("remover"); s.add_argument("projeto"); s.add_argument("ids", nargs="+"); s.set_defaults(f=cmd_remover)
+    s = sub.add_parser("legenda"); s.add_argument("projeto"); s.add_argument("json"); s.set_defaults(f=cmd_legenda)
+    s = sub.add_parser("fonte"); s.add_argument("nome_ou_arquivo"); s.add_argument("--nome"); s.set_defaults(f=cmd_fonte)
+    s = sub.add_parser("fontes"); s.set_defaults(f=cmd_fontes)
+    s = sub.add_parser("estilo"); s.add_argument("projeto"); s.add_argument("estilo", nargs="?")
+    s.add_argument("--destaque"); s.add_argument("--texto"); s.set_defaults(f=cmd_estilo)
+    s = sub.add_parser("ajustar"); s.add_argument("projeto")
+    s.add_argument("--ritmo", choices=list(P.RITMOS)); s.add_argument("--pausa-max", type=float)
+    s.add_argument("--folga", type=float); s.add_argument("--posicao", type=float)
+    s.add_argument("--enquadramento", choices=["preencher", "ajustar"])
+    s.add_argument("--sem-legenda", action="store_true"); s.set_defaults(f=cmd_ajustar)
+    s = sub.add_parser("status"); s.add_argument("projeto"); s.add_argument("mensagem")
+    s.add_argument("--livre", action="store_true"); s.set_defaults(f=cmd_status)
+    s = sub.add_parser("resumo"); s.add_argument("projeto"); s.set_defaults(f=cmd_resumo)
+    s = sub.add_parser("exportar"); s.add_argument("projeto"); s.add_argument("--previa", action="store_true")
+    s.set_defaults(f=cmd_exportar)
+
+    a = ap.parse_args(argv)
+    a.f(a)
+
+
+if __name__ == "__main__":
+    main()
