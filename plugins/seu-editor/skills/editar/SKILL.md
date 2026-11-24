@@ -1,6 +1,6 @@
 ---
 name: editar
-description: Edita vídeos falados em português (Reels, TikTok, Shorts) com interface visual. Use SEMPRE que a pessoa pedir pra editar, cortar, legendar, montar, finalizar ou "deixar pronto pra postar" um vídeo, do jeito que ela escrever, por exemplo "edita o vídeo que acabei de gravar", "edita esse vídeo no estilo da Marina", "corta as pausas desse vídeo", "monta o reels da Tarita com as fotos do drive". Também quando citar o Seu Editor. Corta pausas e regravações, coloca legenda, gancho, destaques, insertos, zoom, sons e cor, e exporta em 1080x1920.
+description: Edita vídeos falados em português (Reels, TikTok, Shorts) com interface visual. Palavra mágica "tcham" — quando a pessoa escrever "tcham" (ex. "edita o vídeo com tcham", "tcham nesse vídeo", "tcham no estilo da Marina"), use SEMPRE esta skill. Use também sempre que ela pedir pra editar, cortar, legendar, montar ou deixar pronto pra postar um vídeo, do jeito que escrever, ou citar o Seu Editor. O vídeo pode vir como link do Google Drive ou Dropbox, caminho, arquivo arrastado ou só uma descrição ("o que acabei de gravar", "tá nos downloads"). Corta pausas e regravações, coloca legenda, gancho, destaques, insertos, zoom, sons e cor, e exporta em 1080x1920.
 argument-hint: "[caminho do vídeo]"
 ---
 
@@ -49,7 +49,19 @@ A pessoa escreve do jeito dela, sem comando e sem caminho. Tire do pedido:
 - **pedidos soltos**: "bem dinâmico", "sem legenda", "acelera um pouco", "com música",
   "coloca o print da Forbes quando eu falar do dado" etc.
 
-Se não veio caminho, ache o vídeo você mesmo, sem perguntar onde está:
+**"tcham"** é a palavra mágica da pessoa: sempre que aparecer, o pedido é pra este editor.
+
+Se veio um **link** (Google Drive, Dropbox ou link direto), passe o link direto pro `novo`:
+ele baixa o vídeo pra `~/Downloads/seu-editor/` e cria o projeto. Se o link for uma pasta
+com vários vídeos, o maior vira o vídeo principal e os outros vão pros insertos.
+```bash
+ed novo "https://drive.google.com/file/d/..." --nome "tarita 02"
+```
+O link precisa estar compartilhado como "qualquer pessoa com o link". Se o download
+falhar por permissão, peça pra pessoa mudar o compartilhamento.
+
+Se a pessoa disse onde está ("tá nos downloads", "na pasta da Tarita no desktop"), procure
+lá. Se não veio caminho nenhum, ache o vídeo você mesmo, sem perguntar onde está:
 ```bash
 ed achar-video              # os 5 mais recentes (Downloads, Desktop, Movies, Documents)
 ed achar-video "tarita"     # por parte do nome

@@ -75,3 +75,43 @@ def buscar(pasta_projeto, origem, log=print):
         raise RuntimeError("não encontrei fotos, vídeos ou músicas nesse link. Confira se ele está compartilhado "
                            "como 'qualquer pessoa com o link'.")
     return trazidos
+
+
+VIDEOS = {".mp4", ".mov", ".m4v", ".webm", ".avi", ".mkv"}
+
+
+def baixar_video(origem, destino_dir, log=print):
+    """Baixa o vídeo principal de um link (Drive, Dropbox ou direto). Se vier uma pasta com
+    vários vídeos, fica com o maior e devolve os outros também, pra servirem de inserto."""
+    os.makedirs(destino_dir, exist_ok=True)
+    tmp = os.path.join(destino_dir, "_baixando_video")
+    shutil.rmtree(tmp, ignore_errors=True)
+    os.makedirs(tmp)
+    try:
+        # reaproveita o mesmo caminho de download dos insertos
+        falso_projeto = os.path.join(tmp, "proj")
+        os.makedirs(falso_projeto)
+        global EXTENSOES
+        antes = set(EXTENSOES)
+        EXTENSOES = antes | VIDEOS
+        try:
+            buscar(falso_projeto, origem, log=log)
+        finally:
+            EXTENSOES = antes
+        pasta = os.path.join(falso_projeto, "insertos")
+        videos = sorted((os.path.join(pasta, n) for n in os.listdir(pasta) if os.path.splitext(n)[1].lower() in VIDEOS),
+                        key=os.path.getsize, reverse=True)
+        if not videos:
+            raise RuntimeError("não achei vídeo nesse link. Confira se ele está compartilhado como 'qualquer pessoa com o link'.")
+        finais = []
+        for v in videos:
+            alvo, n = os.path.join(destino_dir, os.path.basename(v)), 2
+            base, ext = os.path.splitext(alvo)
+            while os.path.exists(alvo):
+                alvo = f"{base}-{n}{ext}"
+                n += 1
+            shutil.move(v, alvo)
+            finais.append(alvo)
+        return finais[0], finais[1:]
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)

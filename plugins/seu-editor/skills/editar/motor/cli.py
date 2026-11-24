@@ -3,7 +3,7 @@
 Uso: python -m motor.cli <comando> ...   (rodar de dentro da pasta da skill)
 
 Comandos:
-  novo VIDEO [--nome N] [--base PASTA]      cria o projeto e mostra a pasta dele
+  novo VIDEO_OU_LINK [--nome N] [--base PASTA]   cria o projeto (aceita link do Drive/Dropbox)
   achar-video [parte do nome]               acha o vídeo quando a pessoa não diz onde está
   transcrever PROJETO [--modelo M]          transcreve com o tempo de cada palavra
   servir PROJETO [--porta P] [--nao-abrir]  abre a interface no navegador
@@ -39,6 +39,7 @@ import argparse
 import json
 import os
 import re
+import shutil
 import sys
 
 if __package__ in (None, ""):
@@ -84,6 +85,14 @@ def fmt_tempo(t):
 
 
 def cmd_novo(a):
+    extras = []
+    if not os.path.exists(os.path.expanduser(a.video)) and re.match(r"https?://", a.video):
+        from . import buscar as B
+        destino = os.path.join(os.path.expanduser("~"), "Downloads", "seu-editor")
+        print("baixando o vídeo do link...", file=sys.stderr)
+        a.video, extras = B.baixar_video(a.video, destino, log=lambda m: print(m, file=sys.stderr))
+        print(f"vídeo baixado: {a.video}", file=sys.stderr)
+    a.video = os.path.expanduser(a.video)
     if not os.path.exists(a.video):
         sys.exit(f"vídeo não encontrado: {a.video}")
     nome = a.nome or os.path.splitext(os.path.basename(a.video))[0]
@@ -95,6 +104,11 @@ def cmd_novo(a):
         sufixo += 1
     os.makedirs(pasta)
     P.salvar(pasta, P.projeto_padrao(a.video, nome, marca_global()))
+    if extras:
+        os.makedirs(os.path.join(pasta, "insertos"), exist_ok=True)
+        for v in extras:
+            shutil.move(v, os.path.join(pasta, "insertos", os.path.basename(v)))
+        print(f"{len(extras)} outros vídeos do link foram pra insertos/", file=sys.stderr)
     P.escrever_estado(pasta, mensagem="projeto criado", tarefa=None)
     print(pasta)
 
