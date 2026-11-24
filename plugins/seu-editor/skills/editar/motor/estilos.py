@@ -21,6 +21,9 @@ PASTA_FONTES = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__fi
 # de uma letra (em fração do tamanho) pra calcular quantas letras cabem.
 FONTES = {
     "sfpro":      {"nome": "SF Pro Display Bold", "familia": '-apple-system, "SF Pro Display", system-ui, "Inter Tight"', "peso": 700, "largura": .55},
+    # Alte Haas Grotesk (gratuita, de Yann Le Coroller): usa a instalada no computador;
+    # sem ela, cai na Arimo (mesma família de desenho) um pouco mais apertada
+    "altehaas":   {"nome": "Alte Haas Grotesk Bold", "familia": '"Alte Haas Grotesk", "AlteHaasGrotesk", "Alte Haas Grotesk Bold", "Helvetica Neue", "Arimo"', "peso": 700, "largura": .55, "tracking": -2},
     "bootzy":     {"nome": "Bootzy TM", "familia": '"Bootzy TM", "Bootzy", "Inter Tight"', "peso": 800, "largura": .5, "tracking": -4},
     "opensauce":  {"nome": "Open Sauce", "familia": '"Open Sauce Sans", "Open Sauce", "Open Sauce One"', "peso": 400, "largura": .54},
     "opensauce-bold": {"nome": "Open Sauce Bold", "familia": '"Open Sauce Sans", "Open Sauce", "Open Sauce One"', "peso": 700, "largura": .57},
@@ -55,6 +58,7 @@ KITS = [
     {"id": "star", "nome": "star", "destaque": "opensauce-bold", "texto": "courier"},
     {"id": "basic", "nome": "basic", "destaque": "condensada", "texto": "futura"},
     {"id": "glow", "nome": "glow", "destaque": "helvetica", "texto": "instrument"},
+    {"id": "domi", "nome": "domi", "destaque": "altehaas", "texto": "opensauce"},
 ]
 KIT_PADRAO = KITS[0]
 
@@ -94,6 +98,56 @@ GANCHO_PADRAO = {
     **VISUAL_PADRAO, "fonte": "@destaque", "tamanho": 58, "cor": "#FFFFFF",
     "contorno": False, "sombra": False, "fundo": "caixa", "cor_fundo": "#C2366F", "entrelinhas": 1.2,
 }
+
+# Modelos de abertura (gancho escrito). O visual de cada um é aplicado por cima do visual
+# do gancho do projeto, só nos campos que o modelo define; a fonte é sempre a de destaque
+# do estilo e a linha pequena/etiqueta usa a fonte de texto.
+MODELOS_GANCHO = {
+    "caixa": {"nome": "caixa colorida", "posicao": 0.24, "duracao": 5.5, "visual": {}},
+    "texto": {"nome": "só texto", "posicao": 0.64, "duracao": 5.0,
+              "visual": {"fundo": "nenhum", "tamanho": 96, "caixa_alta": True, "sombra": True, "brilho": False,
+                         "entrelinhas": 1.0, "cor": "#FFFFFF"}},
+    "rosto": {"nome": "na frente do rosto", "posicao": 0.5, "duracao": 2.0,
+              "visual": {"fundo": "nenhum", "tamanho": 124, "caixa_alta": False, "sombra": True,
+                         "entrelinhas": 1.05, "cor": "#FFFFFF"}},
+    "imagens": {"nome": "imagens atrás de você", "posicao": 0.31, "duracao": 4.2,
+                "visual": {"fundo": "nenhum", "tamanho": 92, "caixa_alta": True, "sombra": True,
+                           "entrelinhas": 1.0, "cor": "#FFFFFF"}},
+    "icones": {"nome": "texto com ícones", "posicao": 0.2, "duracao": 4.5,
+               "visual": {"fundo": "nenhum", "tamanho": 86, "caixa_alta": False, "sombra": True,
+                          "entrelinhas": 1.0, "cor": "#FFFFFF"}},
+    "palavras": {"nome": "palavra por palavra", "posicao": 0.27, "duracao": 3.0,
+                 "visual": {"fundo": "nenhum", "tamanho": 62, "caixa_alta": False, "sombra": True,
+                            "contorno": False, "cor": "#FFFFFF"}},
+}
+# (x, y, largura, giro) das fotos do modelo "imagens": 2 em cima, 2 dos lados, 2 embaixo
+LUGARES_FOTOS_GANCHO = [(.25, .15, .3, -6), (.75, .15, .3, 5), (.13, .46, .26, -4),
+                        (.87, .46, .26, 4), (.27, .79, .26, 3), (.73, .79, .26, -3)]
+ICONES_GANCHO = ["estrela", "brilho", "estrela-contorno", "coracao", "nuvem", "raio", "seta", "circulo"]
+
+
+def visual_gancho(g, fontes_proj):
+    return resolver_fonte(visual_completo(GANCHO_PADRAO, (g or {}).get("visual")), fontes_proj)
+
+
+def aplicar_modelo_gancho(g, modelo):
+    """Troca o modelo da abertura: posição, tempo e formato do texto vêm do modelo; a fonte
+    continua a de destaque do estilo e as cores que a pessoa escolheu ficam."""
+    m = MODELOS_GANCHO[modelo]
+    g["modelo"] = modelo
+    g["posicao"] = m["posicao"]
+    g["duracao"] = m["duracao"]
+    v = dict(g.get("visual") or {})
+    cor = v.get("cor")
+    if modelo == "caixa":
+        v.update({k: GANCHO_PADRAO[k] for k in ("fundo", "tamanho", "caixa_alta", "sombra", "entrelinhas")})
+    else:
+        v.update(m["visual"])
+        if cor and cor.upper() not in ("#FFFFFF",):
+            v["cor"] = cor
+    g["visual"] = v
+    return g
+
 
 # Palavra de impacto: a palavra falada aparece grande, presa ao momento da fala.
 IMPACTO = {
@@ -192,6 +246,8 @@ def estilos_para_interface(dados=None):
         "impacto": IMPACTO, "textos": TEXTOS, "cascata": CASCATA, "desenhos": DESENHOS, "entradas": ENTRADAS,
         "filtros_cor": _filtros_cor(dados), "sons": sons_disponiveis(dados),
         "sons_mapa": SONS_MAPA, "sons_momentos": SONS_MOMENTOS,
+        "modelos_gancho": MODELOS_GANCHO,
+        "icones_gancho": ICONES_GANCHO,
     }
 
 

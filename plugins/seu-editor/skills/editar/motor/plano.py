@@ -372,10 +372,31 @@ def montar_plano(proj):
 
     gancho = None
     g = proj.get("gancho", {})
-    if g.get("ativo") and g.get("texto", "").strip():
-        gancho = {"texto": g["texto"].strip(), "ini_out": 0.0,
-                  "fim_out": round(min(total, float(g.get("duracao", 3.0))), 3),
-                  "posicao": float(g.get("posicao", 0.2))}
+    modelo = g.get("modelo") or "caixa"
+    if g.get("ativo") and (g.get("texto", "").strip() or modelo == "palavras"):
+        fim_g = round(min(total, float(g.get("duracao", 3.0))), 3)
+        gancho = {"texto": g.get("texto", "").strip(), "ini_out": 0.0, "fim_out": fim_g,
+                  "posicao": float(g.get("posicao", E.MODELOS_GANCHO.get(modelo, {}).get("posicao", 0.2))),
+                  "modelo": modelo, "linha_pequena": (g.get("linha_pequena") or "").strip(),
+                  "etiqueta": (g.get("etiqueta") or "").strip(), "icones": g.get("icones"),
+                  "cor_icones": g.get("cor_icones")}
+        if modelo == "palavras":
+            # a fala do começo, uma palavra por vez; as palavras em destaque ficam grandes
+            gancho["palavras"] = [{"t": w["t"], "ini_out": w["ini_out"], "fim_out": w["fim_out"],
+                                   "destaque": w["destaque"]} for w in mantidas if w["t"] and w["ini_out"] < fim_g]
+        if modelo != "caixa" and not g.get("legenda_junto"):
+            # nos modelos de abertura o título fica sozinho na tela, sem legenda por cima
+            saida_blocos = [b for b in saida_blocos if b["ini_out"] >= fim_g - 0.05]
+        if modelo == "imagens":
+            # fotos em volta da cabeça, atrás da pessoa recortada, entrando uma a uma
+            fotos = [f for f in (g.get("imagens") or []) if f][:6]
+            atras = g.get("imagens_atras", False)
+            for k, (arq, (x, y, tam, rot)) in enumerate(zip(fotos, E.LUGARES_FOTOS_GANCHO)):
+                camadas.append({"id": f"gimg{k}", "tipo": "imagem", "arquivo": arq, "modo": "cartao",
+                                "moldura": g.get("moldura_imagens") or "sombra", "proporcao": "4/5",
+                                "x": x, "y": y, "tamanho": tam, "rot": rot, "entrada": "pop",
+                                "movimento": "parado", "atras": bool(atras), "som": "nenhum",
+                                "ini_out": round(min(fim_g - 0.3, 0.25 + 0.17 * k), 3), "fim_out": fim_g})
 
     sons = []
     aj = proj.get("ajustes", {})
@@ -429,7 +450,10 @@ def montar_plano(proj):
         "trilha": proj.get("trilha") if (proj.get("trilha") or {}).get("arquivo") else None,
         "gancho": gancho,
         "legenda": visual,
-        "gancho_visual": E.resolver_fonte(E.visual_completo(E.GANCHO_PADRAO, proj.get("gancho", {}).get("visual")), fontes_proj),
+        "gancho_visual": E.visual_gancho(proj.get("gancho", {}), fontes_proj),
+        "gancho_fonte_texto": (fontes_proj or {}).get("texto") or E.KIT_PADRAO["texto"],
+        "gancho_fonte_destaque2": (fontes_proj or {}).get("destaque2") or (fontes_proj or {}).get("destaque")
+                                  or E.KIT_PADRAO["destaque"],
         "duracao_saida": round(total, 3),
         "duracao_original": round(duracao_original, 3),
         "cortes": max(0, len(segs) - 1),

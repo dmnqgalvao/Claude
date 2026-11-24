@@ -441,3 +441,16 @@ input[type=text] { border: 1px solid var(--linha); border-radius: 14px; padding:
 .arrasto-quadro:active { cursor: grabbing; }
 .enquadrando .arrasto-quadro { display: block; }
 .enquadrando .zonas { display: none; }
+
+/* modelos de abertura */
+.modelos-gancho { display: flex; gap: 8px; overflow-x: auto; padding: 4px 2px 10px; margin-bottom: 4px; }
+.modelo-g { flex: 0 0 auto; width: 74px; border: 0; background: none; padding: 0; cursor: pointer; font: inherit; color: inherit; text-align: center; }
+.modelo-g .mini-tela { display: block; position: relative; width: 74px; height: 120px; border-radius: 12px; background: linear-gradient(180deg, #b9a89c, #6f5d52); overflow: hidden; border: 2px solid transparent; }
+.modelo-g.ativo .mini-tela { border-color: var(--rosa-forte, #c2366f); box-shadow: 0 0 0 3px var(--rosa-claro, #ffe3f0); }
+.modelo-g .pessoa { position: absolute; left: 50%; bottom: -6px; width: 44px; height: 70px; transform: translateX(-50%); background: #3b2f2a; border-radius: 22px 22px 6px 6px; }
+.modelo-g .pessoa::before { content: ""; position: absolute; left: 50%; top: -20px; width: 26px; height: 26px; transform: translateX(-50%); border-radius: 50%; background: #3b2f2a; }
+.modelo-g .t { position: absolute; left: 6px; right: 6px; text-align: center; color: #fff; font-weight: 800; font-size: 9px; line-height: 1; text-transform: uppercase; z-index: 2; }
+.modelo-g .cx { background: #c2366f; padding: 2px 3px; }
+.modelo-g .ft { position: absolute; width: 18px; height: 22px; background: #f7f7f7; border-radius: 2px; box-shadow: 0 2px 4px rgba(0,0,0,.3); }
+.modelo-g .ic { position: absolute; color: #fb76b2; font-size: 12px; z-index: 2; }
+.modelo-g small { display: block; margin-top: 5px; font-size: 11px; line-height: 1.15; }

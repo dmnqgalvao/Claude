@@ -488,6 +488,7 @@ function desenharControles() {
   if (document.activeElement !== $("#g-texto")) $("#g-texto").value = g.texto || "";
   $("#g-dur").value = g.duracao; $("#o-gdur").textContent = seg(g.duracao);
   $("#g-pos").value = g.posicao ?? 0.2; $("#o-gpos").textContent = Math.round((g.posicao ?? 0.2) * 100) + "%";
+  desenharModelosGancho();
   const sug = pj.sugestoes?.ganchos || [];
   $("#sugestoes").innerHTML = sug.length ? `<p>sugestões do claude, clique pra usar</p>` + sug.map((t, k) => `<button class="sugestao" data-k="${k}">${esc(t)}</button>`).join("") : "";
 
@@ -1158,6 +1159,92 @@ function efeitosPrevia() {
     if (ta.paused) ta.play().catch(() => {});
   } else if (!ta.paused) ta.pause();
   if (S.aba === "cortes" && !video.paused) desenharOnda();
+}
+
+
+/* ============================================================ modelos de abertura (gancho) */
+const DESENHO_MODELO = {
+  caixa: `<span class="pessoa"></span><span class="t" style="top:26px"><span class="cx">gancho aqui</span></span>`,
+  texto: `<span class="pessoa"></span><span class="t" style="top:74px;font-size:10px">gancho|aqui</span>`,
+  rosto: `<span class="pessoa"></span><span class="t" style="top:56px;font-size:11px;text-transform:none;font-family:serif">gancho aqui</span>`,
+  imagens: `<span class="ft" style="left:8px;top:10px;transform:rotate(-6deg)"></span><span class="ft" style="right:8px;top:10px;transform:rotate(5deg)"></span><span class="ft" style="left:3px;top:52px"></span><span class="ft" style="right:3px;top:52px"></span><span class="pessoa"></span><span class="t" style="top:36px">gancho aqui</span>`,
+  icones: `<span class="ic" style="left:6px;top:8px">★</span><span class="ic" style="right:7px;top:6px">✦</span><span class="ic" style="left:12px;top:38px">☆</span><span class="ic" style="right:10px;top:36px">★</span><span class="pessoa"></span><span class="t" style="top:20px;font-size:15px;text-transform:none">gancho</span>`,
+  palavras: `<span class="pessoa"></span><span class="t" style="top:32px;text-transform:none;font-size:10px">uma <b style="font-size:15px;font-family:serif">palavra</b></span>`,
+};
+function desenharModelosGancho() {
+  const alvo = $("#g-modelos"); if (!alvo || !S.proj || !S.estilos.modelos_gancho) return;
+  const g = S.proj.gancho, atual = g.modelo || "caixa";
+  alvo.innerHTML = Object.entries(S.estilos.modelos_gancho).map(([k, m]) =>
+    `<button type="button" class="modelo-g${k === atual ? " ativo" : ""}" data-m="${k}"><span class="mini-tela">${(DESENHO_MODELO[k] || "").replace("gancho|aqui", "gancho<br>aqui")}</span><small>${esc(m.nome)}</small></button>`).join("");
+  alvo.onclick = e => {
+    const b = e.target.closest(".modelo-g"); if (!b) return;
+    aplicarModeloGancho(b.dataset.m);
+  };
+  desenharExtrasGancho();
+}
+function aplicarModeloGancho(modelo) {
+  const g = S.proj.gancho, m = S.estilos.modelos_gancho[modelo];
+  const v = { ...(g.visual || {}) }, cor = v.cor;
+  g.modelo = modelo; g.posicao = m.posicao; g.duracao = m.duracao;
+  if (modelo === "caixa") for (const k of ["fundo", "tamanho", "caixa_alta", "sombra", "entrelinhas"]) v[k] = S.estilos.gancho_padrao[k];
+  else { Object.assign(v, m.visual); if (cor && cor.toUpperCase() !== "#FFFFFF") v.cor = cor; }
+  g.visual = v;
+  if (modelo === "palavras") g.ativo = true;
+  if (modelo === "imagens" && !(g.imagens || []).length) g.imagens = S.insertos.filter(i => i.tipo === "imagem").slice(0, 4).map(i => i.nome);
+  video.currentTime = (S.plano?.segmentos?.[0]?.ini || 0) + .8;
+  mudou();
+}
+function desenharExtrasGancho() {
+  const alvo = $("#g-extras"); if (!alvo || !S.proj) return;
+  const g = S.proj.gancho, modelo = g.modelo || "caixa";
+  if (alvo.contains(document.activeElement) && document.activeElement.tagName === "INPUT") return;
+  alvo.innerHTML = "";
+  const grade = document.createElement("div"); grade.className = "vis";
+  const campoTexto = (rotulo, chave, dica) => {
+    const l = document.createElement("label"); l.className = "campo largo";
+    l.innerHTML = `<span>${rotulo}</span><input type="text" placeholder="${esc(dica)}" value="${esc(g[chave] || "")}">`;
+    l.querySelector("input").oninput = e => { g[chave] = e.target.value; mudou({ controles: false }); };
+    grade.appendChild(l);
+  };
+  if (modelo === "imagens" || modelo === "icones") campoTexto("linha pequena em cima", "linha_pequena", modelo === "icones" ? "ex.: roube essas" : "ex.: como transformar");
+  if (modelo === "texto") campoTexto("etiqueta que entra depois", "etiqueta", "ex.: letras ilegíveis");
+  if (modelo === "imagens") {
+    const fotos = S.insertos.filter(i => i.tipo === "imagem");
+    const l = document.createElement("div"); l.className = "campo largo";
+    l.innerHTML = `<span>fotos atrás de você (até 6, na ordem em que entram)</span>`;
+    if (!fotos.length) l.innerHTML += `<p class="mini">envie fotos na aba camadas e escolha aqui.</p>`;
+    const fila = document.createElement("div"); fila.style.cssText = "display:flex;flex-wrap:wrap;gap:6px";
+    for (const f of fotos) {
+      const sel = (g.imagens || []).includes(f.nome);
+      const b = document.createElement("button"); b.type = "button";
+      b.style.cssText = `width:54px;height:68px;padding:0;border-radius:8px;overflow:hidden;cursor:pointer;border:3px solid ${sel ? "var(--rosa-forte,#c2366f)" : "transparent"};opacity:${sel ? 1 : .55}`;
+      b.innerHTML = `<img src="/insertos/${encodeURIComponent(f.nome)}" style="width:100%;height:100%;object-fit:cover">`;
+      b.onclick = () => {
+        const lista = g.imagens || [];
+        g.imagens = lista.includes(f.nome) ? lista.filter(x => x !== f.nome) : [...lista, f.nome].slice(0, 6);
+        mudou({ controles: false }); desenharExtrasGancho();
+      };
+      fila.appendChild(b);
+    }
+    l.appendChild(fila); grade.appendChild(l);
+    grade.appendChild(campoChave("fotos atrás de você (recorta a pessoa; melhor quando você aparece de longe)", !!g.imagens_atras, v => { g.imagens_atras = v; mudou({ controles: false }); }));
+  }
+  if (modelo === "icones") {
+    const nomes = S.estilos.icones_gancho || [];
+    const escolhidos = g.icones && g.icones.length ? g.icones : null;
+    const l = document.createElement("div"); l.className = "campo largo";
+    l.innerHTML = `<span>ícones ${escolhidos ? "" : '<small class="mini">(mistura padrão)</small>'}</span>`;
+    l.appendChild(campoPilulas([["", "mistura"], ...nomes.map(n => [n, n.replace("-", " ")])], escolhidos ? escolhidos[0] : "",
+      v => { g.icones = v ? Array(10).fill(v) : null; mudou({ controles: false }); }));
+    grade.appendChild(l);
+    grade.appendChild(linha("cor dos ícones", controleCor(g.cor_icones || "#FB76B2", c => { g.cor_icones = c; mudou({ controles: false }); })));
+    const solta = document.createElement("button"); solta.type = "button"; solta.className = "btn borda pequeno"; solta.textContent = "ícones coloridos (rosa, branco e amarelo)";
+    solta.onclick = () => { delete g.cor_icones; mudou({ controles: false }); desenharExtrasGancho(); };
+    grade.appendChild(solta);
+  }
+  if (modelo !== "caixa") grade.appendChild(campoChave("manter a legenda durante a abertura", !!g.legenda_junto, v => { g.legenda_junto = v; mudou({ controles: false }); }));
+  if (modelo === "palavras") { const p = document.createElement("p"); p.className = "mini largo"; p.textContent = "as palavras vêm da sua fala, uma por vez. as que estão em destaque na legenda aparecem grandes."; grade.appendChild(p); }
+  if (grade.children.length) alvo.appendChild(grade);
 }
 
 /* ============================================================ enquadramento

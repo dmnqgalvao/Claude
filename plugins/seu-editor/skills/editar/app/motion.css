@@ -68,3 +68,4 @@
 
 .m-flash { left: 0; top: 0; width: 1080px; height: 1920px; pointer-events: none; }
 .m-selecionada { outline: 6px dashed #fb76b2; outline-offset: 14px; }
+.g-titulo, .g-pequena, .g-etiqueta { position: absolute; }

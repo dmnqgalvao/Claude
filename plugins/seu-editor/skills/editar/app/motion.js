@@ -142,19 +142,150 @@
     };
   }
 
+  /* -------------------------------------------------------- gancho escrito (modelos de abertura)
+     caixa: caixa colorida | texto: só texto, com etiqueta opcional | rosto: na frente do rosto
+     imagens: linha pequena + título, fotos atrás da pessoa (as fotos são camadas do plano)
+     icones: linha pequena + palavra gigante com ícones em volta | palavras: a fala, uma por vez
+     *palavra* no texto marca o destaque; | quebra a linha. */
+  const ICONES = {
+    "estrela": `<polygon points="50,4 62,37 97,38 69,59 79,93 50,73 21,93 31,59 3,38 38,37" fill="C"/>`,
+    "estrela-contorno": `<polygon points="50,6 62,37 95,38 69,59 78,91 50,72 22,91 31,59 5,38 38,37" fill="none" stroke="C" stroke-width="6" stroke-linejoin="round"/>`,
+    "brilho": `<path d="M50 2C54 36 64 46 98 50C64 54 54 64 50 98C46 64 36 54 2 50C36 46 46 36 50 2Z" fill="C"/>`,
+    "coracao": `<path d="M50 88C20 66 4 50 4 31C4 17 15 7 28 7C38 7 46 13 50 21C54 13 62 7 72 7C85 7 96 17 96 31C96 50 80 66 50 88Z" fill="C"/>`,
+    "nuvem": `<path d="M24 78C11 78 3 69 3 58C3 47 12 39 23 39C25 24 37 13 52 13C66 13 77 23 80 36C91 37 98 46 98 57C98 69 89 78 77 78Z" fill="C"/>`,
+    "raio": `<polygon points="58,3 18,56 46,56 38,97 82,40 53,40" fill="C"/>`,
+    "seta": `<path d="M12 80C30 40 55 26 84 24M84 24L66 12M84 24L70 42" fill="none" stroke="C" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>`,
+    "circulo": `<circle cx="50" cy="50" r="40" fill="none" stroke="C" stroke-width="7"/>`,
+  };
+  // (x, deslocamento em y a partir do título, tamanho em px, giro) fora da área do rosto
+  const LUGARES_ICONES = [[.12, -.1, 118, -12], [.88, -.11, 128, 10], [.19, .08, 92, 8], [.83, .07, 104, -8],
+    [.06, .0, 72, 0], [.94, -.01, 74, 0], [.33, -.16, 62, 0], [.67, -.15, 66, 0], [.09, .2, 84, -6], [.91, .2, 88, 6],
+    [.5, -.19, 58, 0], [.27, .17, 54, 0]];
+  function textoComDestaque(texto, estiloDest) {
+    return String(texto || "").split("|").map(l => l.trim()).filter(Boolean)
+      .map(l => esc(l).replace(/\*([^*]+)\*/g, (_, x) => `<span style="${estiloDest}">${x}</span>`)).join("<br>");
+  }
   function itemGancho(g, v, ctx) {
+    const modelo = g.modelo || "caixa";
+    const pl = ctx.plano || {};
+    const ftx = E.fontes[pl.gancho_fonte_texto] || fonteDe(v);
+    const fd2 = E.fontes[pl.gancho_fonte_destaque2] || fonteDe(v);
     const c = { ...g, x: .5, y: g.posicao, rot: 0 };
+    const sec = (el, escala, fonte) => {
+      aplicarVisual(el, { ...v, fundo: "nenhum", caixa_alta: false, contorno: false }, escala);
+      el.style.fontFamily = fonte.familia; el.style.fontWeight = fonte.peso;
+      el.style.letterSpacing = ((fonte.tracking || 0) / 100) + "em";
+    };
+    const sai = t => 1 - c01((t - (g.fim_out - .14)) / .14);
+    if (modelo === "caixa") {
+      return {
+        k: "gancho" + hash(JSON.stringify(v) + g.texto + g.posicao), z: 80,
+        criar() {
+          const el = document.createElement("div"); el.className = "m-txt";
+          aplicarVisual(el, v); conteudo(el, g.texto.replace(/\*/g, ""), v);
+          el.style.maxWidth = (W - 180) + "px"; return el;
+        },
+        atualizar(el, t) { posicionar(el, c, envelope(c, t, "pop")); return ""; },
+      };
+    }
+    if (modelo === "palavras") {
+      const pals = g.palavras || [];
+      return {
+        k: "ganchop" + hash(JSON.stringify(v) + JSON.stringify(pals) + g.posicao), z: 80,
+        criar() { const el = document.createElement("div"); el.className = "m-imp"; return el; },
+        atualizar(el, t) {
+          let w = null;
+          for (const p of pals) if (t >= p.ini_out - .02) w = p;
+          if (!w || (pals.indexOf(w) === pals.length - 1 && t > w.fim_out + .4)) { el.style.opacity = 0; return ""; }
+          const chave = w.ini_out + w.t;
+          if (el._w !== chave) {
+            el._w = chave;
+            aplicarVisual(el, v, w.destaque ? 1.8 : 1);
+            if (w.destaque) { const f = fonteDe({ ...v, fonte: pl.gancho_fonte_destaque2 }); el.style.fontFamily = f.familia; el.style.fontWeight = f.peso; }
+            el.textContent = w.t;
+          }
+          const pin = c01((t - w.ini_out) / .09);
+          posicionar(el, c, { op: r3(c01(pin * 3) * sai(t)), sc: r3(.85 + .15 * ease.back(pin)), ty: 0, tx: 0 });
+          return chave;
+        },
+      };
+    }
+    const destEstilo = modelo === "icones"
+      ? `font-size:2.3em;line-height:.9;letter-spacing:-.04em;display:inline-block`
+      : `font-family:${fd2.familia};font-weight:${fd2.peso};${v.cor_destaque ? "color:" + v.cor_destaque + ";" : ""}`;
+    const icones = (g.icones && g.icones.length ? g.icones : ["estrela", "brilho", "estrela-contorno", "nuvem", "brilho", "estrela", "estrela-contorno", "brilho", "nuvem", "estrela"]).slice(0, LUGARES_ICONES.length);
+    const cores = g.cor_icones ? [g.cor_icones] : ["#FB76B2", "#FFFFFF", "#FFD84D"];
     return {
-      k: "gancho" + hash(JSON.stringify(v) + g.texto + g.posicao), z: 80,
+      k: "ganchom" + modelo + hash(JSON.stringify(v) + JSON.stringify(g)), z: 80,
       criar() {
         const el = document.createElement("div");
-        el.className = "m-txt";
-        aplicarVisual(el, v);
-        conteudo(el, g.texto, v);
-        el.style.maxWidth = (W - 180) + "px";
+        el.style.cssText = `left:0;top:0;width:${W}px;height:${H}px;pointer-events:none`;
+        if (modelo === "icones") {
+          icones.forEach((nome, i) => {
+            const [x, dy, tam, rot] = LUGARES_ICONES[i];
+            const d = document.createElement("div"); d.className = "g-icone";
+            d.style.cssText = `position:absolute;width:${tam}px;height:${tam}px;filter:drop-shadow(0 6px 12px rgba(0,0,0,.25))`;
+            d.dataset.x = x; d.dataset.y = (g.posicao ?? .2) + dy; d.dataset.rot = rot; d.dataset.i = i;
+            d.innerHTML = /\.(png|jpe?g|webp|gif|svg)$/i.test(nome)
+              ? `<img src="${(ctx.base || "") + "/insertos/" + encodeURIComponent(nome)}" style="width:100%;height:100%;object-fit:contain">`
+              : `<svg viewBox="0 0 100 100" width="100%" height="100%">${(ICONES[nome] || ICONES.estrela).replace(/C/g, cores[i % cores.length])}</svg>`;
+            el.appendChild(d);
+          });
+        }
+        if (g.linha_pequena && modelo !== "rosto") {
+          const d = document.createElement("div"); d.className = "m-txt g-pequena";
+          if (modelo === "imagens") { sec(d, 1.05, fd2); d.style.fontStyle = "italic"; d.style.paddingRight = ".15em"; }
+          else sec(d, modelo === "icones" ? .62 : .5, ftx);
+          d.textContent = g.linha_pequena;
+          el.appendChild(d);
+        }
+        const tit = document.createElement("div"); tit.className = "m-txt g-titulo";
+        aplicarVisual(tit, v);
+        tit.innerHTML = textoComDestaque(g.texto, destEstilo);
+        if (v.fundo === "pilula") { tit.style.background = v.cor_fundo; tit.style.padding = ".42em .95em"; tit.style.borderRadius = "999px"; }
+        tit.style.maxWidth = (W - 120) + "px";
+        el.appendChild(tit);
+        if (g.etiqueta && modelo === "texto") {
+          const d = document.createElement("div"); d.className = "m-txt g-etiqueta";
+          sec(d, 1, ftx);
+          d.style.cssText += ";font-size:34px;text-transform:uppercase;letter-spacing:.16em;color:#2B2B2B;background:#F3EBDD;padding:.5em 1.1em;border-radius:999px;text-shadow:none;box-shadow:0 8px 24px rgba(0,0,0,.18)";
+          d.textContent = g.etiqueta;
+          el.appendChild(d);
+        }
         return el;
       },
-      atualizar(el, t) { posicionar(el, c, envelope(c, t, "pop")); return ""; },
+      atualizar(el, t) {
+        const op = sai(t);
+        const tit = el.querySelector(".g-titulo"), peq = el.querySelector(".g-pequena"), etq = el.querySelector(".g-etiqueta");
+        const hT = tit.offsetHeight || v.tamanho;
+        let yT = g.posicao;
+        if (modelo === "imagens") {
+          // linha manuscrita se escreve, o título entra logo depois
+          if (peq) {
+            const hP = peq.offsetHeight || v.tamanho;
+            const pinP = c01(t / .45);
+            posicionar(peq, { x: .5, y: yT - (hT / 2 + hP * .35) / H }, { op: r3(op), sc: 1, ty: 0, tx: 0, clip: `inset(-30% ${r3((1 - ease.inout(pinP)) * 112 - 12)}% -30% -12%)` });
+          }
+          const pin = c01((t - (peq ? .4 : 0)) / .12);
+          posicionar(tit, { x: .5, y: yT }, { op: r3(pin * op), sc: 1, ty: 0, tx: 0 });
+          return hash([...el.children].map(d => d.style.cssText).join("|"));
+        }
+        posicionar(tit, { x: .5, y: yT }, { op: r3(c01(t / .1) * op), sc: 1, ty: 0, tx: 0 });
+        if (peq) {
+          const hP = peq.offsetHeight || 40;
+          posicionar(peq, { x: .5, y: yT - (hT / 2 + hP / 2 + 6) / H }, { op: r3(c01(t / .1) * op), sc: 1, ty: 0, tx: 0 });
+        }
+        if (etq) {
+          const pin = c01((t - 1.4) / .28);
+          posicionar(etq, { x: .5, y: yT + (hT / 2 + 70) / H }, { op: r3(c01(pin * 3) * op), sc: r3(.4 + .6 * ease.back(pin)), ty: 0, tx: 0 });
+        }
+        for (const d of el.querySelectorAll(".g-icone")) {
+          const i = +d.dataset.i, pin = c01((t - .04 * i) / .3);
+          const bob = Math.sin((t * 1.6 + i) * 1.3) * 6;
+          posicionar(d, { x: +d.dataset.x, y: +d.dataset.y, rot: +d.dataset.rot }, { op: r3(c01(pin * 3) * op), sc: r3(.3 + .7 * ease.back(pin)), ty: r3(bob), tx: 0 });
+        }
+        return hash([...el.children].map(d => d.style.cssText).join("|"));
+      },
     };
   }
 
@@ -518,6 +649,7 @@
 
   async function preparar(ctx) {
     const vis = [ctx.plano.legenda, ctx.plano.gancho_visual, ...(ctx.plano.camadas || []).map(c => c.visual).filter(Boolean)];
+    for (const f of [ctx.plano.gancho_fonte_texto, ctx.plano.gancho_fonte_destaque2]) if (f) vis.push({ fonte: f }, { fonte: f, italico: true });
     const pedidos = vis.map(v => { const f = fonteDe(v); return `${v.italico ? "italic " : ""}${f.peso} 40px ${f.familia}`; });
     await Promise.all([...new Set(pedidos)].map(p => document.fonts.load(p).catch(() => {})));
     const imgs = (ctx.plano.camadas || []).filter(c => c.tipo === "imagem").map(c => {

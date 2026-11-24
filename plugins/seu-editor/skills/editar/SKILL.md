@@ -116,8 +116,9 @@ existem quando a pessoa pede no chat.
   sons, tipo de gancho, ritmo, insertos e CTA. Se a receita pede cor automática, rode
   `ed cor "$PRJ" --auto`. Se não existir receita com esse nome, diga isso e siga o que a
   pessoa descreveu.
-- **A pessoa não citou estilo**: use os 4 estilos padrão, `cool`, `star`, `basic` e `glow`.
-  Enquanto a transcrição roda, pergunte em uma linha qual dos 4 ela quer. Se ela não
+- **A pessoa não citou estilo**: use os 5 estilos padrão, `cool`, `star`, `basic`, `glow` e
+  `domi` (Alte Haas Grotesk Bold + Open Sauce, o estilo da Domi). Enquanto a transcrição
+  roda, pergunte em uma linha qual deles ela quer. Se ela não
   responder, siga com o padrão da marca (ou `cool`) e lembre que ela troca na aba estilo.
 - **A pessoa descreveu um jeito novo** e gostou do resultado: ofereça salvar como receita,
   pra pedir pelo nome da próxima vez:
@@ -306,8 +307,33 @@ Cada linha ganha um pop baixinho logo antes, sozinho. As linhas ficam quase enco
 `"espaco"` afasta ou aproxima (1 é o padrão, 0,7 bem junto, 1,5 solto).
 
 **Gancho.** O título-gancho (caixa sólida no terço de cima, 5 a 6 s) repete a
-primeira frase falada, que é o gancho. Ou reforce o gancho com um inserto de prova em meia
+primeira frase falada, que é o gancho. Existem modelos de abertura prontos (veja
+"Modelos de abertura" abaixo); escolha o que combina com o vídeo. Ou reforce o gancho com um inserto de prova em meia
 tela nos primeiros segundos. O gancho tem que aparecer na imagem nos primeiros 2 a 6 s.
+
+**Modelos de abertura.** A fonte do título é sempre a de destaque do estilo; a linha
+pequena e a etiqueta usam a fonte de texto. `|` quebra a linha e `*palavra*` marca o
+destaque. A pessoa troca o modelo e o texto na aba texto, card "gancho escrito".
+| modelo | como fica | use quando |
+|---|---|---|
+| `caixa` | caixa colorida no terço de cima, 5,5 s | padrão, dica e serviço |
+| `texto` | título grande no peito (y 0,64), etiqueta em pílula entra em 1,4 s, 5 s | lista, opinião ("trends que eu não compro") |
+| `rosto` | frase curta no meio da tela, na frente do rosto, 2 s | frase de efeito, citação |
+| `imagens` | linha inclinada + título em caixa alta, 2 a 6 fotos nas bordas entrando uma a uma, 4,2 s (com `--imagens-atras` elas ficam atrás da pessoa recortada, bom quando ela aparece de longe) | resultado, prova, "como transformar..." com prints |
+| `icones` | linha pequena + palavra gigante com estrelas e brilhos em volta da cabeça, 4,5 s | tema de uma palavra ("fontes", "ferramentas") |
+| `palavras` | a fala do começo aparece uma palavra por vez, destaques grandes, 3 s | gancho falado forte, sem título |
+```bash
+ed gancho "$PRJ" "trends que eu|*não* compro" --modelo texto --etiqueta "letras ilegíveis"
+ed gancho "$PRJ" "deixa eles|*saberem*" --modelo rosto
+ed gancho "$PRJ" "seus seguidores|viram uma *comunidade*" --modelo imagens --linha "como transformar" --imagens print1.png print2.png print3.png print4.png
+ed gancho "$PRJ" "*fontes*" --modelo icones --linha "roube essas" --icones estrela brilho --cor-icones "#FB76B2"
+ed gancho "$PRJ" "" --modelo palavras
+```
+Ícones: estrela, brilho, estrela-contorno, coracao, nuvem, raio, seta, circulo, ou o nome de
+uma imagem dos insertos (png transparente). Nos modelos fora da `caixa` a legenda some
+durante a abertura; `--legenda-junto` mantém. Sugira o texto, mas mostre na interface pra
+pessoa trocar. Os 4 vídeos de referência das aberturas abrem com o título já inteiro na tela
+e saem num corte seco junto com um corte do vídeo: combine a `--duracao` com um corte.
 
 **Insertos.**
 - *Prova ou contexto*: 1,7 a 4 s, trocando a cada ~2 s quando a pessoa cita algo.

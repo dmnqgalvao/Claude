@@ -308,10 +308,30 @@ def cmd_destacar(a):
 
 
 def cmd_gancho(a):
+    from . import estilos as E
     proj = P.carregar(a.projeto)
-    proj["gancho"].update(ativo=bool(a.texto.strip()), texto=a.texto.strip())
+    g = proj["gancho"]
+    if a.modelo:
+        E.aplicar_modelo_gancho(g, a.modelo)
+    g.update(ativo=bool(a.texto.strip()) or g.get("modelo") == "palavras", texto=a.texto.strip())
+    if a.linha is not None:
+        g["linha_pequena"] = a.linha
+    if a.etiqueta is not None:
+        g["etiqueta"] = a.etiqueta
+    if a.imagens is not None:
+        g["imagens"] = [os.path.basename(x) for x in a.imagens]
+    if a.icones is not None:
+        g["icones"] = a.icones
+    if a.cor_icones:
+        g["cor_icones"] = a.cor_icones
+    if a.legenda_junto:
+        g["legenda_junto"] = True
+    if a.imagens_atras:
+        g["imagens_atras"] = True
+    if a.posicao is not None:
+        g["posicao"] = a.posicao
     if a.duracao:
-        proj["gancho"]["duracao"] = a.duracao
+        g["duracao"] = a.duracao
     P.salvar(a.projeto, proj)
     print("gancho definido")
 
@@ -707,6 +727,10 @@ def main(argv=None):
     s = sub.add_parser("destacar"); s.add_argument("projeto"); s.add_argument("indices", nargs="+")
     s.add_argument("--remover", action="store_true"); s.set_defaults(f=cmd_destacar)
     s = sub.add_parser("gancho"); s.add_argument("projeto"); s.add_argument("texto")
+    s.add_argument("--modelo", choices=["caixa", "texto", "rosto", "imagens", "icones", "palavras"])
+    s.add_argument("--linha"); s.add_argument("--etiqueta"); s.add_argument("--imagens", nargs="*")
+    s.add_argument("--icones", nargs="*"); s.add_argument("--cor-icones"); s.add_argument("--posicao", type=float)
+    s.add_argument("--legenda-junto", action="store_true"); s.add_argument("--imagens-atras", action="store_true")
     s.add_argument("--duracao", type=float); s.set_defaults(f=cmd_gancho)
     s = sub.add_parser("sugerir"); s.add_argument("projeto"); s.add_argument("textos", nargs="+")
     s.set_defaults(f=cmd_sugerir)
