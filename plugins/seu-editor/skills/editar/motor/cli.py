@@ -313,12 +313,15 @@ def cmd_cor(a):
     if a.sem_auto:
         c["auto"] = False
     if a.filtro:
-        c.update(C.FILTROS[a.filtro], filtro=a.filtro)
+        c["look"] = C.APELIDOS.get(a.filtro, a.filtro)
+    if a.intensidade is not None:
+        c["intensidade"] = a.intensidade
+    if a.nitidez is not None:
+        c["nitidez"] = a.nitidez
     for campo in ("brilho", "contraste", "saturacao", "temperatura"):
         v = getattr(a, campo)
         if v is not None:
             c[campo] = v
-            c["filtro"] = "personalizado"
     P.salvar(a.projeto, proj)
     print(json.dumps(c, ensure_ascii=False))
 
@@ -516,7 +519,9 @@ def main(argv=None):
     s = sub.add_parser("estilo"); s.add_argument("projeto"); s.add_argument("estilo", nargs="?")
     s.add_argument("--destaque"); s.add_argument("--texto"); s.set_defaults(f=cmd_estilo)
     s = sub.add_parser("cor"); s.add_argument("projeto"); s.add_argument("--auto", action="store_true")
-    s.add_argument("--sem-auto", action="store_true"); s.add_argument("--filtro", choices=["nenhum", "quente", "frio", "vivo", "suave", "filme", "pb"])
+    s.add_argument("--sem-auto", action="store_true")
+    s.add_argument("--filtro", choices=["nenhum", "natural", "dourado", "pessego", "verao", "frio", "cinema", "filme", "suave", "pb", "quente", "vivo"])
+    s.add_argument("--intensidade", type=float); s.add_argument("--nitidez", type=float)
     for campo in ("brilho", "contraste", "saturacao", "temperatura"):
         s.add_argument("--" + campo, type=float)
     s.set_defaults(f=cmd_cor)

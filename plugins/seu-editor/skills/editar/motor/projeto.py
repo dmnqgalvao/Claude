@@ -50,8 +50,8 @@ def projeto_padrao(video, nome, marca=None):
         "fontes": dict(marca.get("fontes") or {"kit": E.KIT_PADRAO["id"], "destaque": E.KIT_PADRAO["destaque"],
                                               "texto": E.KIT_PADRAO["texto"]}),
         "formato": {"enquadramento": "preencher", "volume": True},
-        "cor": {"auto": False, "ganhos": [1.0, 1.0, 1.0], "filtro": "quente_nitido", "brilho": 0.01, "contraste": 1.06,
-                "saturacao": 1.1, "temperatura": 0.35, "nitidez": 0.6},
+        "cor": {"auto": False, "ganhos": [1.0, 1.0, 1.0], "look": "dourado", "intensidade": 0.8, "brilho": 0.0,
+                "contraste": 1.0, "saturacao": 1.0, "temperatura": 0.0, "nitidez": 0.5},
         "termos": marca.get("termos", []),
     })
 
@@ -82,6 +82,17 @@ def normalizar(proj):
                                "texto": E.KIT_PADRAO["texto"]})
     proj.setdefault("camadas", [])
     proj.setdefault("cortes_tempo", [])
+    cor = proj.get("cor") or {}
+    if "look" not in cor:
+        # projetos antigos: o filtro vira look, e os valores do filtro antigo saem dos ajustes
+        velho = cor.get("filtro", "nenhum")
+        cor["look"] = {"quente": "dourado", "quente_nitido": "dourado", "vivo": "verao"}.get(velho, velho)
+        if cor["look"] not in ("nenhum", "natural", "dourado", "pessego", "verao", "frio", "cinema", "filme", "suave", "pb"):
+            cor["look"] = "nenhum"
+        if velho != "personalizado":
+            cor.update(brilho=0.0, contraste=1.0, saturacao=1.0, temperatura=0.0)
+        cor.setdefault("intensidade", 1.0)
+        proj["cor"] = cor
     aj = proj.setdefault("ajustes", {})
     aj.setdefault("velocidade", 1.0)
     aj.setdefault("zoom_cortes", {"ativo": False, "intensidade": 1.3, "frequencia": 0.35})

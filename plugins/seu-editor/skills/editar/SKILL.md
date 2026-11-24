@@ -174,10 +174,17 @@ ed camada "$PRJ" '{"id":"imp4k2xz","som":"pop"}'
 Trilha de fundo: a música fica em `insertos/` e abaixa sozinha quando a pessoa fala.
 `ed trilha "$PRJ" musica.mp3 --volume 0.14` (`--sem-abaixar` desliga o abaixamento).
 
-**Cor.** `ed cor "$PRJ" --auto` acerta luz e balanço de branco olhando o vídeo. Filtros:
-`--filtro quente|frio|vivo|suave|filme|pb`, e ajustes finos com `--brilho 0.03`,
-`--contraste 1.1`, `--saturacao 1.2`, `--temperatura 0.3` (-1 a 1). Rode o `--auto` em
-todo vídeo gravado com luz de casa, que costuma sair amarelado ou escuro.
+**Cor.** `ed cor "$PRJ" --auto` acerta luz e balanço de branco olhando o vídeo (rode em
+todo vídeo gravado com luz de casa). Por cima entra um filtro com curva de tons e cor
+separada pra sombras e luzes: `--filtro dourado` (luz de fim de tarde, o padrão),
+`pessego` (rosado e suave), `verao` (quente e saturado), `frio` (azulado sem deixar a pele
+cinza), `cinema` (sombra azul-esverdeada, pele quente), `filme` (preto desbotado, cor
+contida), `suave` (pouco contraste, claro), `natural` (só dá profundidade), `pb`, `nenhum`.
+`--intensidade 0.7` dosa o filtro (0 a 1). Ajustes finos por cima: `--temperatura 0.3`
+(-1 a 1), `--brilho 0.03`, `--contraste 1.1`, `--saturacao 1.1`, `--nitidez 0.5`.
+Combine o filtro com o clima: dica e especialista em `natural` ou `dourado` a 60%-80%,
+lugar e desejo em `dourado` ou `verao`, relato emocional em `filme` ou `pessego`, tecnologia
+e esporte em `frio` ou `cinema`.
 
 **Corte por tempo.** Pra tirar um trecho que não tem fala (barulho, cena parada),
 `ed cortar-tempo "$PRJ" 12.5 14.2` (segundos do vídeo original). A pessoa também corta
@@ -266,7 +273,7 @@ cada palavra-chave, pop no destaque que alterna, whoosh 0,2 s antes da foto que 
 voando e ding no CTA. Volume baixo. Não coloque música no vídeo, a não ser que a pessoa
 peça (ela entra depois, no Instagram).
 
-**Cor.** Quente e nítida (filtro `quente_nitido`, já é o padrão). Rode `ed cor "$PRJ" --auto`
+**Cor.** Quente e nítida (filtro `dourado` a 80% com nitidez, já é o padrão). Rode `ed cor "$PRJ" --auto`
 em vídeo gravado com luz de casa. Na confissão ou na virada da história, coloque preto e
 branco por 1 a 7 s: `{"tipo":"efeito","efeito":"pb","palavra":N,"duracao":3}`.
 

@@ -25,27 +25,15 @@ def limpar_texto(t, sem_pontuacao=True, caixa_alta=False):
     return t
 
 
-COR_NEUTRA = {"auto": False, "ganhos": [1.0, 1.0, 1.0], "filtro": "nenhum",
-              "brilho": 0.0, "contraste": 1.0, "saturacao": 1.0, "temperatura": 0.0}
-
-
 def cor_final(cor):
-    """Junta correção automática e ajustes num só conjunto: ganho por canal,
-    brilho (somado), contraste e saturação. Prévia e exportação usam os mesmos números."""
-    c = dict(COR_NEUTRA)
-    c.update(cor or {})
-    g = list(c["ganhos"]) if c.get("auto") else [1.0, 1.0, 1.0]
-    t = float(c.get("temperatura", 0))
-    g = [g[0] * (1 + .09 * t), g[1] * (1 + .015 * t), g[2] * (1 - .09 * t)]
-    final = {"r": round(g[0], 4), "g": round(g[1], 4), "b": round(g[2], 4),
-             "brilho": round(float(c.get("brilho", 0)) + (c.get("auto_brilho", 0) if c.get("auto") else 0), 4),
-             "contraste": round(float(c.get("contraste", 1)) * (c.get("auto_contraste", 1) if c.get("auto") else 1), 4),
-             "saturacao": round(float(c.get("saturacao", 1)), 4)}
-    final["nitidez"] = round(float(c.get("nitidez", 0) or 0), 3)
-    final["neutra"] = (abs(final["r"] - 1) < 1e-3 and abs(final["g"] - 1) < 1e-3 and abs(final["b"] - 1) < 1e-3
-                       and abs(final["brilho"]) < 1e-3 and abs(final["contraste"] - 1) < 1e-3
-                       and abs(final["saturacao"] - 1) < 1e-3)
-    return final
+    """Curvas por canal + saturação + nitidez. Prévia (SVG) e exportação (FFmpeg) usam os mesmos números."""
+    from . import cor as C
+    cv = C.curvas(cor)
+    identidade = [round(i / 16, 4) for i in range(17)]
+    cv["nitidez"] = round(float((cor or {}).get("nitidez", 0) or 0), 3)
+    cv["neutra"] = (cv["r"] == identidade and cv["g"] == identidade and cv["b"] == identidade
+                    and abs(cv["saturacao"] - 1) < 1e-3)
+    return cv
 
 
 def calcular_segmentos(proj):

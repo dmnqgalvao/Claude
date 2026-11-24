@@ -287,15 +287,14 @@
 </main>
 
 <div class="aviso" id="aviso" role="status"></div>
-<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" id="svg-filtros">
   <filter id="filtro-cor" color-interpolation-filters="sRGB">
-    <feColorMatrix id="fc-ganhos" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 1 0"/>
-    <feColorMatrix id="fc-sat" type="saturate" values="1"/>
     <feComponentTransfer>
-      <feFuncR id="fc-r" type="linear" slope="1" intercept="0"/>
-      <feFuncG id="fc-g" type="linear" slope="1" intercept="0"/>
-      <feFuncB id="fc-b" type="linear" slope="1" intercept="0"/>
+      <feFuncR id="fc-r" type="table" tableValues="0 1"/>
+      <feFuncG id="fc-g" type="table" tableValues="0 1"/>
+      <feFuncB id="fc-b" type="table" tableValues="0 1"/>
     </feComponentTransfer>
+    <feColorMatrix id="fc-sat" type="saturate" values="1"/>
   </filter>
 </svg>
 <audio id="trilha-audio" loop preload="auto"></audio>

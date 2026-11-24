@@ -79,8 +79,11 @@ def _expr_efeitos(camadas, largura, altura):
 def _filtro_cor(cor):
     if not cor or cor.get("neutra"):
         return ""
-    return (f"colorchannelmixer=rr={cor['r']:.4f}:gg={cor['g']:.4f}:bb={cor['b']:.4f},"
-            f"eq=brightness={cor['brilho']:.4f}:contrast={cor['contraste']:.4f}:saturation={cor['saturacao']:.4f},")
+    def pts(v):
+        n = len(v) - 1
+        return " ".join(f"{k / n:.4f}/{y:.4f}" for k, y in enumerate(v))
+    sat = f"eq=saturation={cor['saturacao']:.4f}," if abs(cor.get("saturacao", 1) - 1) > 1e-3 else ""
+    return f"curves=r='{pts(cor['r'])}':g='{pts(cor['g'])}':b='{pts(cor['b'])}',{sat}"
 
 
 def montar_filtro(plano, proj, largura, altura, fps, com_audio, videos, idx_quadros, sons=(), trilha_idx=None,

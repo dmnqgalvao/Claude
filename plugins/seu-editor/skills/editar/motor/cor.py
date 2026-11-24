@@ -11,16 +11,81 @@ Os limites são conservadores pra não estragar vídeo que já está bom.
 
 import subprocess
 
-FILTROS = {
-    "nenhum":  {"brilho": 0.0, "contraste": 1.0, "saturacao": 1.0, "temperatura": 0.0, "nitidez": 0.0},
-    "quente_nitido": {"brilho": 0.01, "contraste": 1.06, "saturacao": 1.1, "temperatura": 0.35, "nitidez": 0.6},
-    "quente":  {"brilho": 0.01, "contraste": 1.03, "saturacao": 1.08, "temperatura": 0.55},
-    "frio":    {"brilho": 0.0, "contraste": 1.04, "saturacao": 0.95, "temperatura": -0.45},
-    "vivo":    {"brilho": 0.01, "contraste": 1.1, "saturacao": 1.3, "temperatura": 0.05},
-    "suave":   {"brilho": 0.035, "contraste": 0.9, "saturacao": 0.88, "temperatura": 0.15},
-    "filme":   {"brilho": -0.01, "contraste": 1.08, "saturacao": 0.82, "temperatura": 0.25},
-    "pb":      {"brilho": 0.0, "contraste": 1.15, "saturacao": 0.0, "temperatura": 0.0},
+# Filtros (looks). Cada um é uma curva de tons por canal: contraste em S, cor nas sombras,
+# cor nas luzes, preto desbotado e um ganho por canal, mais a saturação. A mesma curva vira
+# o filtro "curves" do FFmpeg na exportação e uma tabela do SVG na prévia.
+#   sombras / luzes: quanto somar em (vermelho, verde, azul) nas partes escuras / claras
+#   desbota: quanto o preto sobe (ar de filme)      s: força do contraste em S
+#   ganho: multiplicador por canal (temperatura)    sat: saturação
+LOOKS = {
+    "nenhum":  {"nome": "original"},
+    "natural": {"nome": "natural", "s": .18, "sat": 1.06},
+    "dourado": {"nome": "dourado", "s": .22, "sat": 1.1, "ganho": (1.04, 1.0, .94),
+                "luzes": (.09, .045, -.06), "sombras": (.035, .005, -.035)},
+    "pessego": {"nome": "pêssego", "s": .04, "sat": .95, "brilho": .05, "desbota": .05,
+                "luzes": (.08, .02, .035), "sombras": (.05, 0, .02)},
+    "verao":   {"nome": "verão", "s": .35, "sat": 1.28, "ganho": (1.05, 1.01, .95),
+                "luzes": (.06, .045, -.05)},
+    "frio":    {"nome": "frio limpo", "s": .26, "sat": .92, "ganho": (.97, 1.0, 1.05),
+                "sombras": (-.025, .015, .08), "luzes": (-.02, 0, .035)},
+    "cinema":  {"nome": "cinema", "s": .34, "sat": 1.05,
+                "sombras": (-.05, .035, .09), "luzes": (.08, .03, -.065)},
+    "filme":   {"nome": "filme", "s": .12, "sat": .78, "desbota": .09, "teto": .93,
+                "sombras": (0, .035, .02), "luzes": (.03, .03, -.02)},
+    "suave":   {"nome": "suave", "s": -.2, "sat": .85, "brilho": .06, "desbota": .06,
+                "luzes": (.03, 0, .035)},
+    "pb":      {"nome": "preto e branco", "s": .35, "sat": 0},
 }
+APELIDOS = {"quente": "dourado", "quente_nitido": "dourado", "vivo": "verao"}
+# compatibilidade com o comando antigo `cor --filtro`
+FILTROS = {k: {} for k in list(LOOKS) + list(APELIDOS)}
+
+
+def _s(x):
+    return x * x * (3 - 2 * x)
+
+
+def curvas(cor, pontos=17):
+    """Curva final (r, g, b) com o filtro, a intensidade e os ajustes da pessoa."""
+    cor = cor or {}
+    nome = APELIDOS.get(cor.get("look") or "nenhum", cor.get("look") or "nenhum")
+    lk = LOOKS.get(nome, LOOKS["nenhum"])
+    k = max(0.0, min(1.0, float(cor.get("intensidade", 1.0))))
+    ganho_auto = cor.get("ganhos") if cor.get("auto") else (1, 1, 1)
+    t = float(cor.get("temperatura", 0))
+    ganho_t = (1 + .08 * t, 1 + .012 * t, 1 - .08 * t)
+    s_extra = (float(cor.get("contraste", 1)) - 1) * 1.2 + ((cor.get("auto_contraste", 1) - 1) * 1.2 if cor.get("auto") else 0)
+    brilho = float(cor.get("brilho", 0)) + (cor.get("auto_brilho", 0) if cor.get("auto") else 0)
+    saida = []
+    for ch in range(3):
+        linha = []
+        for i in range(pontos):
+            x = i / (pontos - 1)
+            # o filtro
+            y = x * (lk.get("ganho") or (1, 1, 1))[ch]
+            y = y + lk.get("s", 0) * (_s(min(1, max(0, y))) - y)
+            if lk.get("brilho"):
+                y = max(0, y) ** (1 / (1 + 1.6 * lk["brilho"]))
+            w_s, w_l = (1 - y) ** 2, y ** 2
+            y += (lk.get("sombras") or (0, 0, 0))[ch] * w_s + (lk.get("luzes") or (0, 0, 0))[ch] * w_l
+            y = lk.get("desbota", 0) + y * (lk.get("teto", 1) - lk.get("desbota", 0))
+            y = x + k * (y - x)
+            # correção automática e ajustes da pessoa, por cima
+            y *= ganho_auto[ch] * ganho_t[ch]
+            y = min(1, max(0, y))
+            if s_extra:
+                y = y + s_extra * (_s(y) - y)
+            if brilho:
+                y = max(0, y) ** (1 / (1 + 1.6 * brilho))
+            linha.append(round(min(1, max(0, y)), 4))
+        saida.append(linha)
+    sat_look = lk.get("sat", 1)
+    sat = (1 + k * (sat_look - 1)) * float(cor.get("saturacao", 1))
+    return {"r": saida[0], "g": saida[1], "b": saida[2], "saturacao": round(sat, 4)}
+
+
+def looks_para_interface():
+    return {nome: {"nome": lk["nome"], **curvas({"look": nome})} for nome, lk in LOOKS.items()}
 
 
 def analisar(video, maximo_quadros=40):

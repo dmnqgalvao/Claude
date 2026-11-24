@@ -198,5 +198,5 @@ SONS = {"whoosh": "whoosh", "pop": "pop", "ding": "ding", "clique": "clique", "i
 
 
 def _filtros_cor():
-    from .cor import FILTROS
-    return FILTROS
+    from .cor import looks_para_interface
+    return looks_para_interface()

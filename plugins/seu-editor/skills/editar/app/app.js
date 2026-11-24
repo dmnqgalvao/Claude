@@ -963,25 +963,55 @@ $("#onda").addEventListener("pointerup", () => {
 });
 
 /* ============================================================ cor do vídeo */
+function tabela(v) { return v.join(" "); }
+function filtroSvg(id, cv) {
+  const ns = "http://www.w3.org/2000/svg";
+  let f = document.getElementById(id);
+  if (!f) {
+    f = document.createElementNS(ns, "filter"); f.id = id; f.setAttribute("color-interpolation-filters", "sRGB");
+    f.innerHTML = `<feComponentTransfer><feFuncR type="table"/><feFuncG type="table"/><feFuncB type="table"/></feComponentTransfer><feColorMatrix type="saturate"/>`;
+    $("#svg-filtros").appendChild(f);
+  }
+  const [r, g, b] = f.querySelectorAll("feFuncR, feFuncG, feFuncB");
+  r.setAttribute("tableValues", tabela(cv.r)); g.setAttribute("tableValues", tabela(cv.g)); b.setAttribute("tableValues", tabela(cv.b));
+  f.querySelector("feColorMatrix").setAttribute("values", cv.saturacao);
+}
+let quadroLooks = null;
+function capturarQuadroLooks() {
+  try {
+    const c = document.createElement("canvas"); c.width = 180; c.height = 280;
+    const g = c.getContext("2d"); const vw = video.videoWidth, vh = video.videoHeight; if (!vw) return;
+    const e = Math.max(180 / vw, 280 / vh);
+    g.drawImage(video, (180 - vw * e) / 2, (280 - vh * e) / 2, vw * e, vh * e);
+    quadroLooks = c.toDataURL("image/jpeg", .8);
+  } catch (err) { quadroLooks = null; }
+}
 function desenharCor() {
   const alvo = $("#cor"); if (!alvo || !S.proj) return;
   const c = S.proj.cor;
   alvo.innerHTML = "";
-  const grade = document.createElement("div"); grade.className = "vis";
-  const nomes = { nenhum: "original", quente_nitido: "quente e nítido", quente: "quente", frio: "frio", vivo: "vivo", suave: "suave", filme: "filme", pb: "preto e branco" };
-  grade.appendChild(linha("filtro", campoPilulas(Object.keys(S.estilos.filtros_cor).map(k => [k, nomes[k] || k]), c.filtro || "nenhum", v => {
-    Object.assign(c, { nitidez: 0 }, S.estilos.filtros_cor[v], { filtro: v }); mudou({ controles: false }); setTimeout(desenharCor, 50);
-  })));
-  const mexe = (k, v) => { c[k] = v; c.filtro = "personalizado"; mudou({ controles: false }); };
-  grade.appendChild(campoFaixa("brilho", -.25, .25, .005, c.brilho || 0, x => (x > 0 ? "+" : "") + Math.round(x * 100), v => mexe("brilho", v)));
-  grade.appendChild(campoFaixa("contraste", .6, 1.6, .01, c.contraste ?? 1, x => Math.round(x * 100) + "%", v => mexe("contraste", v)));
-  grade.appendChild(campoFaixa("saturação", 0, 2, .01, c.saturacao ?? 1, x => Math.round(x * 100) + "%", v => mexe("saturacao", v)));
-  grade.appendChild(campoFaixa("nitidez", 0, 1.5, .05, c.nitidez || 0, x => x ? Math.round(x * 100) + "%" : "sem", v => mexe("nitidez", v)));
-  grade.appendChild(campoFaixa("temperatura", -1, 1, .01, c.temperatura || 0, x => x > .02 ? "mais quente" : x < -.02 ? "mais fria" : "neutra", v => mexe("temperatura", v)));
-  const auto = campoChave("correção automática ligada", c.auto, v => { c.auto = v; mudou({ controles: false }); });
-  auto.classList.add("largo");
-  grade.appendChild(auto);
+  if (!quadroLooks) capturarQuadroLooks();
+  const looks = S.estilos.filtros_cor;
+  const grade = document.createElement("div"); grade.className = "looks";
+  for (const [k, lk] of Object.entries(looks)) {
+    filtroSvg("look-" + k, lk);
+    const b = document.createElement("button"); b.className = "look" + ((c.look || "nenhum") === k ? " ativa" : "");
+    b.innerHTML = `<div class="mini-look" style="${quadroLooks ? `background-image:url(${quadroLooks});` : ""}filter:url(#look-${k})"></div>${esc(lk.nome)}`;
+    b.onclick = () => { c.look = k; if (c.intensidade == null) c.intensidade = 1; mudou({ controles: false }); desenharCor(); };
+    grade.appendChild(b);
+  }
   alvo.appendChild(grade);
+  const vis = document.createElement("div"); vis.className = "vis";
+  const mexe = (chave, v) => { c[chave] = v; mudou({ controles: false }); };
+  vis.appendChild(campoFaixa("intensidade do filtro", 0, 1, .05, c.intensidade ?? 1, x => Math.round(x * 100) + "%", v => mexe("intensidade", v)));
+  vis.appendChild(campoFaixa("temperatura", -1, 1, .01, c.temperatura || 0, x => x > .02 ? "mais quente" : x < -.02 ? "mais fria" : "neutra", v => mexe("temperatura", v)));
+  vis.appendChild(campoFaixa("brilho", -.25, .25, .005, c.brilho || 0, x => (x > 0 ? "+" : "") + Math.round(x * 100), v => mexe("brilho", v)));
+  vis.appendChild(campoFaixa("contraste", .6, 1.6, .01, c.contraste ?? 1, x => Math.round(x * 100) + "%", v => mexe("contraste", v)));
+  vis.appendChild(campoFaixa("saturação", 0, 2, .01, c.saturacao ?? 1, x => Math.round(x * 100) + "%", v => mexe("saturacao", v)));
+  vis.appendChild(campoFaixa("nitidez", 0, 1.5, .05, c.nitidez || 0, x => x ? Math.round(x * 100) + "%" : "sem", v => mexe("nitidez", v)));
+  const auto = campoChave("correção automática de luz e branco (antes do filtro)", c.auto, v => { c.auto = v; mudou({ controles: false }); });
+  auto.classList.add("largo"); vis.appendChild(auto);
+  alvo.appendChild(vis);
 }
 $("#cor-auto").onclick = async e => {
   const b = e.currentTarget;
@@ -998,10 +1028,13 @@ function aplicarCorPrevia() {
   $(".tela-video").style.filter = S.pbAgora ? (c && !c.neutra ? "url(#filtro-cor) grayscale(1)" : "grayscale(1)") : "";
   if (!c || c.neutra) { cel.classList.remove("cor-ativa"); return; }
   cel.classList.add("cor-ativa");
-  $("#fc-ganhos").setAttribute("values", `${c.r} 0 0 0 0  0 ${c.g} 0 0 0  0 0 ${c.b} 0 0  0 0 0 1 0`);
+  const chave = tabela(c.r) + tabela(c.g) + tabela(c.b) + c.saturacao;
+  if (chave === aplicarCorPrevia.ultima) return;
+  aplicarCorPrevia.ultima = chave;
+  $("#fc-r").setAttribute("tableValues", tabela(c.r));
+  $("#fc-g").setAttribute("tableValues", tabela(c.g));
+  $("#fc-b").setAttribute("tableValues", tabela(c.b));
   $("#fc-sat").setAttribute("values", c.saturacao);
-  const inter = .5 * (1 - c.contraste) + c.brilho;
-  for (const id of ["#fc-r", "#fc-g", "#fc-b"]) { $(id).setAttribute("slope", c.contraste); $(id).setAttribute("intercept", inter); }
 }
 
 /* ============================================================ trilha de fundo e sons */
@@ -1230,6 +1263,8 @@ async function vigiar() {
   listarInsertos().then(desenharTrilhaFundo);
   carregarOnda();
   carregarRecortes();
+  video.addEventListener("seeked", () => { if (!quadroLooks) { capturarQuadroLooks(); desenharCor(); } }, { once: true });
+  setTimeout(() => { video.currentTime = Math.min(2, (S.proj.info?.duracao || 4) / 3); }, 400);
   addEventListener("resize", () => { desenharQuadro(); desenharOnda(); });
   requestAnimationFrame(laco);
   vigiar();
