@@ -73,7 +73,7 @@ Abra uma sessão nova na aba Code e escreva do seu jeito, usando a palavra mági
 
 Se você não disser o estilo, o Claude pergunta qual dos 5 você quer enquanto o vídeo é transcrito.
 
-Quando a primeira edição fica pronta, a interface abre sozinha no navegador. Se não abrir, o Claude te passa o endereço (normalmente http://127.0.0.1:4848).
+Quando a primeira edição fica pronta, a interface abre sozinha no navegador, de preferência no Chrome, que desenha a prévia igual ao vídeo exportado. Se não abrir, o Claude te passa o endereço (normalmente http://127.0.0.1:4848).
 
 ### Conferir e confirmar
 
@@ -107,7 +107,7 @@ Mande a narração (áudio do celular, mp3, m4a ou até um vídeo, do qual só o
 - **Ritmo:** seco, calmo, natural ou acelerado, mais o ajuste fino das pausas.
 - **Velocidade:** normal, 1,1, 1,2, 1,3 ou um valor exato.
 - **Transcrição:** clique nas palavras pra cortar, trazer de volta ou destacar na legenda.
-- **Onda do áudio:** dá pra cortar direto na linha do tempo.
+- **Linha do tempo com a onda do áudio:** a agulha rosa mostra onde o vídeo está. Clique pra ouvir dali, arraste a agulha pra procurar e arraste por cima de um trecho pra cortar.
 - **O que o Claude cortou:** aparece separado por motivo (hesitação, regravação, gaguejo), com botão pra trazer de volta.
 - **Desfazer e refazer:** botões em cima da prévia.
 
@@ -137,7 +137,7 @@ Tudo o que entra por cima do vídeo fica aqui.
 
 ### 04 estilo
 
-- **Fontes:** os 5 estilos prontos, troca livre das fontes e envio de fonte própria.
+- **Fontes:** os 5 estilos prontos e troca livre das fontes. Pra usar uma fonte sua, escolha "+ enviar uma fonte do computador" no fim de qualquer lista de fontes, ou clique em "+ enviar uma fonte" no card fontes do estilo. Também dá pra pedir no chat uma fonte do Google Fonts.
 - **Cor do vídeo:** seus filtros (quente suave, pêssego vibrante, documentário, mais frio limpo e cinema), correção automática de luz e branco e envio de filtro .cube.
 - **Enquadramento:** "mexer no enquadramento" deixa você arrastar o vídeo dentro do celular e dar zoom com a rodinha do mouse. Cada arquivo guarda o seu. Sem ajuste manual, o editor já centraliza o seu rosto.
 - **Formato:** preencher a tela ou vídeo inteiro com fundo desfocado.

@@ -1,5 +1,14 @@
 [
   {
+    "versao": "0.13.1",
+    "itens": [
+      "agulha na linha do tempo: mostra onde o vídeo está e dá pra arrastar pra procurar",
+      "opção de enviar uma fonte do computador direto na lista de fontes",
+      "cor do brilho do texto",
+      "a interface abre no Chrome quando ele existe, pra prévia sair igual ao vídeo exportado"
+    ]
+  },
+  {
     "versao": "0.13.0",
     "itens": [
       "botão confirmar alterações: você confere na interface, confirma com um recado e avisa no chat que conferiu",

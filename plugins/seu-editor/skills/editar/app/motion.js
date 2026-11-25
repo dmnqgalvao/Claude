@@ -77,7 +77,7 @@
       el.style.wordSpacing = `${(v.espessura || 6) * 1.4 * escala}px`;
     } else { el.style.webkitTextStroke = ""; el.style.wordSpacing = ""; }
     const sombras = [];
-    if (v.brilho) sombras.push(`0 0 16px ${rgba(v.cor, .8)}`, `0 0 42px ${rgba(v.cor, .5)}`);
+    if (v.brilho) sombras.push(`0 0 16px ${rgba(v.cor_brilho || v.cor, .8)}`, `0 0 42px ${rgba(v.cor_brilho || v.cor, .5)}`);
     if (v.sombra && !fundo) sombras.push(`0 ${4 * escala}px ${16 * escala}px rgba(0,0,0,.5)`, `0 1px 2px rgba(0,0,0,.35)`);
     el.style.textShadow = sombras.join(", ");
   }

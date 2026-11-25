@@ -339,6 +339,24 @@ AUDIOS = {".mp3", ".wav", ".m4a", ".aac", ".ogg"}
 PASTA_SONS = os.path.join(RAIZ, "sons")
 
 
+def abrir_no_navegador(url):
+    """Prefere o Chrome (mesmo motor da exportação); sem ele, o navegador padrão."""
+    import subprocess
+    import sys
+    if sys.platform == "darwin":
+        for app in ("Google Chrome", "Chromium", "Brave Browser", "Microsoft Edge", "Arc"):
+            if subprocess.run(["open", "-a", app, url], capture_output=True).returncode == 0:
+                return
+    else:
+        for nome in ("google-chrome", "chrome", "chromium", "chromium-browser"):
+            try:
+                if webbrowser.get(nome).open(url):
+                    return
+            except webbrowser.Error:
+                continue
+    webbrowser.open(url)
+
+
 def forma_de_onda(pasta, por_segundo=50):
     """Picos do áudio original (50 por segundo), guardados em onda.json."""
     cache = os.path.join(pasta, "onda.json")
@@ -435,7 +453,7 @@ def servir(pasta, porta=4848, abrir=True, dados=None):
     P.escrever_estado(pasta, url=url)
     print(f"interface aberta em {url}", flush=True)
     if abrir:
-        threading.Timer(0.4, lambda: webbrowser.open(url)).start()
+        threading.Timer(0.4, lambda: abrir_no_navegador(url)).start()
     try:
         servidor.serve_forever()
     except KeyboardInterrupt:

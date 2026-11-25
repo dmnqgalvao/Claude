@@ -122,6 +122,9 @@ ed novo fotos/*.jpg broll.mp4 --narracao fala.m4a --nome praia # narração: ins
   troque o inserto de cada trecho pra combinar com o que a narração diz (leia `camadas` e
   o `texto`): a imagem tem que ilustrar a frase.
 
+O servidor abre a interface no Chrome quando ele existe (é o mesmo motor que desenha a
+exportação, então a prévia sai igual ao vídeo final). Se a pessoa usar o Safari e disser que
+a prévia está diferente do vídeo exportado, peça pra abrir o endereço no Chrome.
 O servidor imprime o endereço (normalmente http://127.0.0.1:4848). Passe pra pessoa se o
 navegador não abrir. Em computador fraco, use `transcrever "$PRJ" --modelo small`.
 

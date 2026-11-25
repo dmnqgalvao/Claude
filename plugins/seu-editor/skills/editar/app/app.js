@@ -185,6 +185,7 @@ function laco() {
     if (video.paused !== fundo.paused) video.paused ? fundo.pause() : fundo.play().catch(() => {});
   }
   aplicarEnquadramento();
+  if (S.aba === "cortes") moverAgulha();
   if (S.enquadrando) { const a = arquivoNoTempo(video.currentTime); if (a && a.id !== S.quadroArq) { S.quadroArq = a.id; desenharEnquadramento(); } }
   desenharQuadro();
   efeitosPrevia();
@@ -324,6 +325,15 @@ function linha(rotulo, conteudo) {
   d.innerHTML = `<span class="mini-rotulo">${rotulo}</span>`; d.appendChild(conteudo); return d;
 }
 
+/* "+ enviar uma fonte" aparece no fim de toda lista de fontes e abre o envio */
+document.addEventListener("change", e => {
+  const sel = e.target;
+  if (sel.tagName !== "SELECT" || sel.value !== "__enviar") return;
+  e.stopImmediatePropagation();
+  sel.value = sel.dataset.anterior || sel.options[0].value;
+  $("#enviar-fonte").click();
+}, true);
+document.addEventListener("focusin", e => { if (e.target.tagName === "SELECT") e.target.dataset.anterior = e.target.value; });
 function opcoesFonte(valor, comPapeis = true) {
   const F = S.estilos.fontes, f = S.proj.fontes;
   let html = "";
@@ -336,6 +346,7 @@ function opcoesFonte(valor, comPapeis = true) {
   const opt = ([id, x]) => `<option value="${id}" ${valor === id ? "selected" : ""} style="font-family:${esc(x.familia)};font-weight:${x.peso}">${esc(x.nome)}</option>`;
   if (da.length) html += `<optgroup label="suas fontes">${da.map(opt).join("")}</optgroup>`;
   html += `<optgroup label="fontes">${nossas.map(opt).join("")}</optgroup>`;
+  html += `<optgroup label="sua fonte"><option value="__enviar">+ enviar uma fonte do computador…</option></optgroup>`;
   return html;
 }
 
@@ -358,8 +369,9 @@ function editorVisual(alvo, visual, aoMudar, { tamanho = [20, 220], fonteComPape
   estilos.appendChild(campoChave("caixa alta", v.caixa_alta, x => set("caixa_alta", x)));
   estilos.appendChild(campoChave("itálico", v.italico, x => set("italico", x)));
   estilos.appendChild(campoChave("sombra", v.sombra, x => set("sombra", x)));
-  estilos.appendChild(campoChave("brilho", v.brilho, x => set("brilho", x)));
+  estilos.appendChild(campoChave("brilho", v.brilho, x => set("brilho", x, true)));
   grade.appendChild(estilos);
+  if (v.brilho) grade.appendChild(linha("cor do brilho", controleCor(v.cor_brilho || v.cor, c => set("cor_brilho", c))));
 
   const cont = document.createElement("div"); cont.className = "largo linha-opcoes";
   cont.appendChild(campoChave("contorno", v.contorno, x => set("contorno", x, true)));
@@ -965,9 +977,17 @@ function larguraOnda() {
 }
 function desenharOnda() {
   const cv = $("#onda"); if (!cv || !S.plano || !ONDA || !$("#onda-rolagem").clientWidth) return;
-  const dur = S.proj.info.duracao || 1, w = larguraOnda(), h = 96, dpr = devicePixelRatio || 1;
-  cv.width = w * dpr; cv.height = h * dpr; cv.style.width = w + "px"; cv.style.height = h + "px";
-  const g = cv.getContext("2d"); g.scale(dpr, dpr); g.clearRect(0, 0, w, h);
+  const dur = S.proj.info.duracao || 1, w = larguraOnda(), hTotal = 110, topo = 22, dpr = devicePixelRatio || 1;
+  cv.width = w * dpr; cv.height = hTotal * dpr; cv.style.width = w + "px"; cv.style.height = hTotal + "px";
+  const g = cv.getContext("2d"); g.scale(dpr, dpr); g.clearRect(0, 0, w, hTotal);
+  // régua: tracinho a cada segundo da gravação, maior a cada 5 (o tempo do vídeo editado fica na agulha)
+  g.fillStyle = "#b5b5b5";
+  for (let t = 0; t <= dur; t += 1) {
+    const x = t / dur * w, grande = t % 5 === 0;
+    g.fillRect(x, topo - (grande ? 8 : 4), 1, grande ? 8 : 4);
+  }
+  g.translate(0, topo);
+  const h = hTotal - topo;
   const ps = ONDA.picos, porS = ONDA.por_segundo;
   const px = t => t / dur * w;
   for (const c of S.proj.cortes_tempo || []) {
@@ -988,8 +1008,27 @@ function desenharOnda() {
     g.fillRect(x, (h - alt) / 2, barra, alt);
   }
   if (selOnda) { g.fillStyle = "rgba(251,118,178,.35)"; g.fillRect(px(Math.min(selOnda.a, selOnda.b)), 0, Math.abs(px(selOnda.b) - px(selOnda.a)), h); }
-  g.fillStyle = "#c2366f"; g.fillRect(px(video.currentTime) - 1, 0, 2, h);
+  moverAgulha();
 }
+/* agulha: segue o vídeo, rola junto quando toca e dá pra arrastar */
+function moverAgulha() {
+  const ag = $("#agulha"), rol = $("#onda-rolagem"); if (!ag || !S.proj) return;
+  const dur = S.proj.info.duracao || 1, w = larguraOnda(), x = video.currentTime / dur * w;
+  ag.style.left = x + "px";
+  const cab = $("#cabeca-agulha"), sai = paraSaida(video.currentTime);
+  const txt = `${Math.floor(sai / 60)}:${(sai % 60).toFixed(1).padStart(4, "0").replace(".", ",")}`;
+  if (cab.textContent !== txt) cab.textContent = txt;
+  if (!video.paused && !agulhaPresa && (x < rol.scrollLeft + 20 || x > rol.scrollLeft + rol.clientWidth - 40))
+    rol.scrollLeft = Math.max(0, x - rol.clientWidth * .25);
+}
+let agulhaPresa = false;
+(function arrastarAgulha() {
+  const cab = $("#cabeca-agulha"); if (!cab) return;
+  cab.addEventListener("pointerdown", e => { e.stopPropagation(); e.preventDefault(); agulhaPresa = true; cab.setPointerCapture(e.pointerId); video.pause(); });
+  cab.addEventListener("pointermove", e => { if (agulhaPresa) { video.currentTime = tempoOnda(e); moverAgulha(); } });
+  const solta = () => { agulhaPresa = false; };
+  cab.addEventListener("pointerup", solta); cab.addEventListener("pointercancel", solta);
+})();
 function tempoOnda(e) {
   const r = $("#onda").getBoundingClientRect();
   return Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)) * (S.proj.info.duracao || 1);
