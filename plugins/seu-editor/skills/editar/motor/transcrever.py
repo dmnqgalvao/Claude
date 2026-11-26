@@ -80,6 +80,17 @@ def transcrever(pasta, modelo="large-v3-turbo", dir_modelos=None, log=print):
             log(f"transcrevendo... {int(prog * 100)}%")
             ultimo_aviso = agora
 
+    # fala que ficou sem texto (começo errado, repetição): lê de novo e marca o que sobrar
+    try:
+        from faster_whisper import decode_audio
+        from . import recuperar as RC
+        P.escrever_estado(pasta, mensagem="relendo os trechos de fala que ficaram sem texto")
+        audio = decode_audio(P.midia_previa(proj), sampling_rate=16000)
+        palavras, _, _ = RC.recuperar(modelo_w, audio, palavras, PROMPT_BASE,
+                                      lambda t: bool(HESITACAO.match(normalizar(t))), log=log)
+    except Exception as e:
+        log(f"sem releitura da fala: {e}")
+
     proj = P.carregar(pasta)   # relê, a interface pode ter mudado algo
     proj["palavras"] = palavras
     proj["modelo"] = modelo

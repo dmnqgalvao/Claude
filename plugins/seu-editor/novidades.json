@@ -1,5 +1,12 @@
 [
   {
+    "versao": "0.14.0",
+    "itens": [
+      "o editor relê os trechos de fala que ficaram sem texto (começo errado, repetição) e corta o que sobrar",
+      "palavra esticada que engolia um pedaço de fala errada é encurtada"
+    ]
+  },
+  {
     "versao": "0.13.1",
     "itens": [
       "agulha na linha do tempo: mostra onde o vídeo está e dá pra arrastar pra procurar",
