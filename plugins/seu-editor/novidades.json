@@ -1,5 +1,16 @@
 [
   {
+    "versao": "0.16.0",
+    "itens": [
+      "emendas apertadas pela onda do áudio: sem quadros parados, virados ou som solto antes e depois da fala",
+      "folha com o primeiro e o último quadro de cada trecho, pro Claude ver se você está virada ou mexendo em algo na emenda",
+      "rosto centralizado tomada por tomada, também no plano normal",
+      "palavra escrita onde não tem voz (careta, estalo) sai cortada",
+      "legenda quebra na troca de frase mesmo sem pontuação",
+      "aviso quando a última palavra do vídeo sai fraca"
+    ]
+  },
+  {
     "versao": "0.15.1",
     "itens": [
       "corte de erros calibrado numa gravação real de 9 minutos: a mesma frase gravada de novo minutos depois, começo largado com reticências, \"não, não, não\", palavra solta entre pausas e três ou mais tentativas seguidas",

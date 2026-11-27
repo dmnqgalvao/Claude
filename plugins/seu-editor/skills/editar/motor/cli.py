@@ -250,6 +250,13 @@ def cmd_transcrever(a):
 def cmd_servir(a):
     from . import servidor
     proj = P.carregar(a.projeto)
+    if proj.get("palavras") and not (proj.get("energia_arquivo") and os.path.exists(proj["energia_arquivo"])):
+        try:
+            from . import energia as EN
+            EN.calcular(a.projeto, proj)
+            P.salvar(a.projeto, proj)
+        except Exception as e:
+            print(f"sem energia do áudio: {e}", file=sys.stderr)
     if P.proxy_desatualizado(proj):
         P.escrever_estado(a.projeto, tarefa="preparando", mensagem="juntando os arquivos pra prévia")
         P.gerar_proxy(a.projeto, proj, aviso=lambda m: print(m, file=sys.stderr))
@@ -669,6 +676,54 @@ def cmd_sem_legenda(a):
     print(f"{len(idx)} palavras " + ("voltaram pra legenda" if a.volta else "fora da legenda (continuam no vídeo)"))
 
 
+def cmd_emendas(a):
+    """Folha com o primeiro e o último quadro de cada trecho, pra olhar se a pessoa está
+    virada, mexendo na roupa ou pegando o celular bem na emenda."""
+    import subprocess
+    proj = P.carregar(a.projeto)
+    plano = PL.montar_plano(proj)
+    midia = P.midia_previa(proj)
+    pasta = os.path.join(a.projeto, "_previa", "emendas")
+    os.makedirs(pasta, exist_ok=True)
+    for f in os.listdir(pasta):
+        os.remove(os.path.join(pasta, f))
+    segs = plano["segmentos"]
+    folhas = []
+    por_folha = 8
+    for pag in range(0, len(segs), por_folha):
+        quadros = []
+        for n, sg in enumerate(segs[pag:pag + por_folha], pag):
+            for lado, t in (("ini", sg["ini"] + 0.04), ("fim", max(sg["ini"], sg["fim"] - 0.06))):
+                arq = os.path.join(pasta, f"{n:03d}-{lado}.png")
+                rotulo = f"{n} {lado} {t:.2f}s"
+                subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", f"{t:.3f}", "-i", midia, "-frames:v", "1",
+                                "-vf", f"scale=-2:320,drawtext=text='{rotulo}':x=6:y=6:fontsize=18:fontcolor=white:box=1:boxcolor=black@0.6",
+                                arq], capture_output=True)
+                if os.path.exists(arq):
+                    quadros.append(arq)
+        if not quadros:
+            continue
+        folha = os.path.join(pasta, f"folha-{pag // por_folha + 1}.png")
+        entradas = sum((["-i", q] for q in quadros), [])
+        cols = 4
+        # 4 quadros por linha: começo e fim de 2 trechos lado a lado
+        lay = []
+        for k in range(len(quadros)):
+            x = "+".join(["w0"] * (k % cols)) or "0"
+            y = "+".join(["h0"] * (k // cols)) or "0"
+            lay.append(f"{x}_{y}")
+        filtro = "".join(f"[{k}:v]" for k in range(len(quadros))) + f"xstack=inputs={len(quadros)}:layout={'|'.join(lay)}:fill=black"
+        if len(quadros) == 1:
+            filtro = "[0:v]null"
+        subprocess.run(["ffmpeg", "-v", "error", "-y", *entradas, "-filter_complex", filtro, "-frames:v", "1", folha],
+                       capture_output=True)
+        if os.path.exists(folha):
+            folhas.append(folha)
+    for f in folhas:
+        print(f)
+    print(f"{len(segs)} trechos; cada par é o começo (ini) e o fim (fim) de um trecho", file=sys.stderr)
+
+
 def cmd_conferir(a):
     """Reescuta o que vai pro vídeo e acha fala escondida (repetição, tentativa que o
     reconhecimento juntou). Com --corrigir, corta esses pedaços na linha do tempo."""
@@ -708,12 +763,43 @@ def cmd_revisar(a):
         if not a.so_avisos or "⚠" in ln:
             print(ln)
     n = sum(1 for ln in linhas if "⚠" in ln)
+    from . import energia as EN
+    e = EN.carregar(proj)
+    vivas = [p for p in proj["palavras"] if not p.get("cortada")]
+    if e and len(vivas) > 5:
+        medias = sorted(m for m in (EN.media(e, p["ini"], p["fim"]) for p in vivas) if m is not None)
+        tipica = medias[len(medias) // 2]
+        ult = vivas[-1]
+        m_ult = EN.media(e, max(ult["ini"], ult["fim"] - 0.25), ult["fim"])
+        if m_ult is not None and m_ult < tipica - 6:
+            print(f"⚠ a última palavra ({ult['i']}:{ult['t']}) sai fraca ({m_ult - tipica:+.0f} dB): procure outra tomada do fim")
     print(f"\n{len(linhas)} frases, {n} com aviso pra conferir", file=sys.stderr)
 
 
 def cmd_rosto(a):
     from . import rosto
     proj = P.carregar(a.projeto)
+    if a.trechos:
+        from . import recorte as R
+        plano = PL.montar_plano(proj)
+        midia = P.midia_previa(proj)
+        info = P.sondar(midia)
+        lista = []
+        for sg in plano["segmentos"]:
+            arq = (proj.get("arquivos") or [{}])[sg.get("arq", 0)]
+            if arq.get("tipo") != "video" or arq.get("modo") == "imagem":
+                continue
+            r = rosto.achar(midia, sg["ini"], sg["fim"], int(info.get("largura", 1080)), int(info.get("altura", 1920)), n=3)
+            if r:
+                # o rosto foi medido na prévia: passa pra coordenada do arquivo
+                c = (proj.get("proxy_caixas") or {}).get(arq.get("id")) if proj.get("proxy") else None
+                if c:
+                    r = {"x": (r["x"] - c[0]) / c[2], "y": (r["y"] - c[1]) / c[3]}
+                lista.append({"ini": sg["ini"], "fim": sg["fim"], "x": round(r["x"], 4), "y": round(r["y"], 4)})
+        proj["rostos_trechos"] = lista
+        P.salvar(a.projeto, proj)
+        print(f"rosto medido em {len(lista)} de {len(plano['segmentos'])} trechos")
+        return
     if a.refazer:
         for arq in proj.get("arquivos") or []:
             arq.pop("rosto", None)
@@ -883,11 +969,13 @@ def main(argv=None):
     s.set_defaults(f=cmd_revisao)
     s = sub.add_parser("sem-legenda"); s.add_argument("projeto"); s.add_argument("indices", nargs="+")
     s.add_argument("--volta", action="store_true"); s.set_defaults(f=cmd_sem_legenda)
+    s = sub.add_parser("emendas"); s.add_argument("projeto"); s.set_defaults(f=cmd_emendas)
     s = sub.add_parser("conferir"); s.add_argument("projeto"); s.add_argument("--corrigir", action="store_true")
     s.add_argument("--modelo", default="large-v3-turbo"); s.set_defaults(f=cmd_conferir)
     s = sub.add_parser("revisar"); s.add_argument("projeto"); s.add_argument("--so-avisos", action="store_true")
     s.set_defaults(f=cmd_revisar)
     s = sub.add_parser("rosto"); s.add_argument("projeto"); s.add_argument("--refazer", action="store_true")
+    s.add_argument("--trechos", action="store_true", help="mede o rosto em cada trecho do vídeo editado")
     s.set_defaults(f=cmd_rosto)
     s = sub.add_parser("regravacoes"); s.add_argument("projeto")
     s.add_argument("--refazer", action="store_true"); s.add_argument("--desfazer", action="store_true")

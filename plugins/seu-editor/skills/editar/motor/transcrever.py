@@ -96,6 +96,11 @@ def transcrever(pasta, modelo="large-v3-turbo", dir_modelos=None, log=print):
         log(f"sem releitura da fala: {e}")
 
     proj = P.carregar(pasta)   # relê, a interface pode ter mudado algo
+    try:
+        from . import energia as EN
+        EN.calcular(pasta, proj)
+    except Exception as e:
+        log(f"sem energia do áudio: {e}")
     proj["palavras"] = palavras
     proj["modelo"] = modelo
     # vários arquivos: clipe de vídeo quase sem fala vira trecho de imagem (vlog, paisagem, b-roll)

@@ -436,6 +436,25 @@ devia ter e o que ele ouviu. Se uma "sobra" for fala de propósito, tire o corte
 `cortes_tempo` (ou peça pra pessoa clicar no trecho na linha do tempo). Demora mais ou menos
 o tempo do vídeo. Rode de novo depois que a pessoa mexer nos cortes.
 
+**Conferência das emendas (olhar, além de ouvir).** O áudio não mostra quando a pessoa está
+virada pro lado, mexendo no óculos, pegando o celular ou andando pra câmera no começo ou no
+fim de um trecho. Rode `ed emendas "$PRJ"`: ele salva folhas com o primeiro e o último quadro
+de cada trecho (numerados). Abra cada folha e olhe os quadros. Se a pessoa estiver fora da
+câmera numa emenda:
+- troque pela outra tomada da mesma frase (outra tentativa olhando pra câmera), trazendo uma
+  de volta com `ed manter` e cortando a outra; ou
+- encurte o trecho na linha do tempo (`ed cortar-tempo`) só os quadros ruins, sem cortar fala.
+O fim do vídeo merece atenção especial: corte antes da pessoa andar até a câmera. Se
+`ed revisar` disser que a última palavra sai fraca, use outra tomada do fim.
+
+**Rosto centralizado em cada tomada.** Depois dos cortes, rode `ed rosto "$PRJ" --trechos`:
+mede o rosto em cada trecho (a pessoa muda de lugar entre tomadas) e o plano normal ganha um
+zoom leve (até 1,12x) quando é preciso pra centralizar. Rode de novo se os cortes mudarem.
+
+As emendas já saem apertadas pela onda do áudio (entram ~50 ms antes da voz e saem ~80 ms
+depois), e palavrinha escrita onde não tem voz (careta, estalo, respiração) já sai cortada
+com motivo "sem fala".
+
 Palavra que fica no vídeo mas não deve aparecer na legenda (nome repetido, palavra que o
 texto na tela já mostra): `ed sem-legenda "$PRJ" 40-42` (`--volta` desfaz).
 

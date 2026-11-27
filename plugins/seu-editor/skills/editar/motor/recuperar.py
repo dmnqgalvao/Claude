@@ -67,10 +67,22 @@ def buracos(palavras, fala, minimo=0.18):
     return out
 
 
+def sem_fala(palavras, fala):
+    """Palavrinha que o reconhecimento escreveu onde não tem voz (careta, estalo de língua,
+    respiração): marca como cortada."""
+    for p in palavras:
+        dur = max(0.01, p["fim"] - p["ini"])
+        cobre = _sobreposicao(p["ini"], p["fim"], fala) / dur
+        letras = len(re.sub(r"\W", "", p["t"]))
+        if not p.get("cortada") and cobre < 0.2 and (letras <= 3 or p.get("prob", 1) < 0.5):
+            p.update(cortada=True, motivo="sem fala", origem="auto")
+
+
 def recuperar(modelo, audio, palavras, prompt, hesitacao, log=print):
     """Lê de novo os buracos e devolve a lista nova de palavras (reindexada)."""
     fala = _fala(audio)
     encurtar_esticadas(palavras, fala)
+    sem_fala(palavras, fala)
     novos, marcas = [], []
     for a, b in buracos(palavras, fala):
         ini_clip, fim_clip = max(0.0, a - 0.6), min(len(audio) / TAXA, b + 0.6)

@@ -121,6 +121,7 @@ def calcular_segmentos(proj):
                 novos.append([c["fim"], fim])
         segs = novos
 
+    segs = apertar_emendas(segs, palavras, proj)
     segs = encaixar_arquivos(proj, segs)
     vel = max(0.5, min(2.0, float(aj.get("velocidade", 1.0))))
     saida = []
@@ -142,6 +143,36 @@ def calcular_segmentos(proj):
         acumulado += (fim - ini) / vel
     zoom_nos_cortes(saida, aj.get("zoom_cortes") or {}, palavras)
     return saida
+
+
+def apertar_emendas(segs, palavras, proj):
+    """Acerta cada trecho pela onda do áudio: começa ~50 ms antes da voz e termina ~80 ms
+    depois dela. Tira os quadros parados, virados ou com som solto nas emendas."""
+    if proj.get("ajustes", {}).get("apertar") is False:
+        return segs
+    from . import energia as EN
+    e = EN.carregar(proj)
+    if not e:
+        return segs
+    vivas = [p for p in palavras if not p.get("cortada")]
+    out = []
+    for ini, fim in segs:
+        dentro = [p for p in vivas if ini - 0.02 <= (p["ini"] + p["fim"]) / 2 <= fim + 0.02]
+        if not dentro:
+            out.append([ini, fim])
+            continue
+        prim, ult = dentro[0], dentro[-1]
+        # começo: limiar mais baixo, pra não perder "e", "a", "não" fracos; no máximo
+        # 0,15 s depois do início que o reconhecimento deu pra palavra
+        v_ini = EN.voz(e, ini, prim["fim"], acima=8)
+        if v_ini:
+            ini = max(ini, min(v_ini[0] - 0.05, prim["ini"] + 0.15))
+        # fim: o reconhecimento costuma esticar a última palavra até o silêncio; vale a voz
+        v_fim = EN.voz(e, ult["ini"], fim, acima=10)
+        if v_fim:
+            fim = min(fim, max(v_fim[1] + 0.08, ult["ini"] + 0.1))
+        out.append([round(ini, 3), round(fim, 3)])
+    return out
 
 
 def arquivo_de(proj, t):
@@ -295,24 +326,37 @@ def _ini_out_camada(c, proj, segs):
 
 
 def aplicar_foco(segs, proj):
-    """Recorte de cada plano fechado: centraliza o rosto (olhos um pouco acima do meio)
-    sem sair da imagem. Sem rosto conhecido, usa o centro com o terço de cima."""
+    """Recorte de cada trecho: centraliza o rosto (olhos um pouco acima do meio) sem sair da
+    imagem. Usa o rosto medido naquele trecho (rostos_trechos) quando tiver, senão o do
+    arquivo. Se no plano normal o rosto estiver fora do centro, aproxima de leve (até 1,12x)
+    só o necessário pra centralizar. Sem rosto conhecido, usa o centro com o terço de cima."""
     arqs = proj.get("arquivos") or []
     ajustar = proj.get("formato", {}).get("enquadramento") == "ajustar"
+    centralizar = proj.get("ajustes", {}).get("centralizar", True)
+    trechos = proj.get("rostos_trechos") or []
     for s in segs:
+        a = arqs[s.get("arq", 0)] if s.get("arq", 0) < len(arqs) else None
+        r = None
+        if a:
+            meio = (s["ini"] + s["fim"]) / 2
+            local = next((t for t in trechos if t["ini"] - 0.05 <= meio <= t["fim"] + 0.05), None)
+            rosto = {"x": local["x"], "y": local["y"]} if local else a.get("rosto")
+            if rosto:
+                x, y, w, h = P.retangulo_arquivo(a, ajustar, P.quadro_de(a, ajustar))
+                r = (x + rosto["x"] * w, y + rosto["y"] * h)
         z = float(s.get("zoom", 1.0))
+        if r and centralizar and z <= 1.001 and not ajustar and abs(r[0] - 0.5) > 0.03:
+            precisa = 0.5 / r[0] if r[0] < 0.5 else 0.5 / (1 - r[0])
+            z = s["zoom"] = round(min(1.12, max(1.0, precisa)), 3)
         if z <= 1.001:
             s.pop("foco", None)
             continue
-        a = arqs[s.get("arq", 0)] if s.get("arq", 0) < len(arqs) else None
-        r = P.rosto_na_tela(a, ajustar) if a else None
+        lim = 1 - 1 / z
         if r:
-            lim = 1 - 1 / z
-            cx = max(0.0, min(lim, r[0] - P.ALVO_ROSTO[0] / z))
-            cy = max(0.0, min(lim, r[1] - P.ALVO_ROSTO[1] / z))
-            s["foco"] = [round(cx, 4), round(cy, 4)]
+            s["foco"] = [round(max(0.0, min(lim, r[0] - P.ALVO_ROSTO[0] / z)), 4),
+                         round(max(0.0, min(lim, r[1] - P.ALVO_ROSTO[1] / z)), 4)]
         else:
-            s["foco"] = [round((1 - 1 / z) / 2, 4), round((1 - 1 / z) * 0.42, 4)]
+            s["foco"] = [round(lim / 2, 4), round(lim * 0.42, 4)]
 
 
 def _para_saida(t, segs, idx_seg):
@@ -399,8 +443,8 @@ def montar_plano(proj):
                 quebra = True
             elif PONTUACAO_FINAL.search(ant["bruto"]) or PONTUACAO_PAUSA.search(ant["bruto"]):
                 quebra = True
-            elif ant["seg"] != w["seg"] and (w["ini_out"] - ant["fim_out"] > 0.01
-                                              or segs[ant["seg"]].get("arq") != segs[w["seg"]].get("arq")):
+            elif ant["seg"] != w["seg"] or w["ini_src"] - ant["fim_src"] > 0.35:
+                # corte ou pausa entre as duas: costuma ser troca de frase, mesmo sem pontuação
                 quebra = True
             elif w["ini_out"] - ant["fim_out"] > 0.6:
                 quebra = True
