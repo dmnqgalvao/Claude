@@ -1,5 +1,16 @@
 [
   {
+    "versao": "0.15.0",
+    "itens": [
+      "o reconhecimento passa a escrever as repetições e tentativas em vez de juntar tudo numa frase só",
+      "segunda escuta trecho por trecho na transcrição, pra achar fala escondida",
+      "conferência de ouvido antes de mostrar e antes de exportar: reescuta o que vai pro vídeo e corta tentativa escondida, ficando com a última",
+      "trecho sem nenhuma palavra sai do vídeo",
+      "corrigido um travamento no detector de regravações",
+      "tirar palavra só da legenda, sem tirar do vídeo"
+    ]
+  },
+  {
     "versao": "0.14.1",
     "itens": [
       "pedacinhos de áudio sem nenhuma palavra que sobravam entre dois cortes saem do vídeo",

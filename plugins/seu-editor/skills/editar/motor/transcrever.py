@@ -2,8 +2,9 @@
 
 Decisões que fazem diferença em vídeo falado em português:
 - idioma travado em "pt", sem detecção automática;
-- um texto de partida cheio de hesitações, pra o Whisper escrever os
-  "éé", "hum" e "tipo" em vez de limpar a fala (sem isso não dá pra cortar);
+- um texto de partida cheio de hesitações e repetições ("eu, eu comecei a, comecei a"),
+  pra o Whisper escrever os "éé", "hum", "tipo" e as tentativas repetidas em vez de limpar
+  a fala (sem isso não dá pra cortar);
 - detector de voz (Silero VAD, já incluso) pra ignorar ruído e trechos mudos;
 - condition_on_previous_text desligado, o que evita frases inventadas em
   trechos repetidos.
@@ -15,8 +16,9 @@ import time
 from . import projeto as P
 
 PROMPT_BASE = (
-    "Então, é... hum, deixa eu ver. Tipo, sabe? Aí eu, ahn, comecei a gravar, né. "
-    "Éé, peraí, vou falar de novo."
+    "Então, é... hum, deixa eu ver. Aí eu, eu comecei a, comecei a gravar, né. "
+    "É que, é que, peraí, vou falar de novo. O, o que, o que eu quero dizer é, ahn, isso. "
+    "Tipo, sabe? Éé, de novo."
 )
 
 HESITACAO = re.compile(
@@ -86,8 +88,10 @@ def transcrever(pasta, modelo="large-v3-turbo", dir_modelos=None, log=print):
         from . import recuperar as RC
         P.escrever_estado(pasta, mensagem="relendo os trechos de fala que ficaram sem texto")
         audio = decode_audio(P.midia_previa(proj), sampling_rate=16000)
-        palavras, _, _ = RC.recuperar(modelo_w, audio, palavras, PROMPT_BASE,
-                                      lambda t: bool(HESITACAO.match(normalizar(t))), log=log)
+        hes = lambda t: bool(HESITACAO.match(normalizar(t)))
+        P.escrever_estado(pasta, mensagem="ouvindo de novo, trecho por trecho, pra achar repetições escondidas")
+        palavras, _ = RC.segunda_escuta(modelo_w, audio, palavras, PROMPT_BASE, hes, log=log)
+        palavras, _, _ = RC.recuperar(modelo_w, audio, palavras, PROMPT_BASE, hes, log=log)
     except Exception as e:
         log(f"sem releitura da fala: {e}")
 

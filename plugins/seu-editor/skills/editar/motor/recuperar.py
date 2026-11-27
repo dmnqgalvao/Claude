@@ -112,3 +112,116 @@ def recuperar(modelo, audio, palavras, prompt, hesitacao, log=print):
         p["i"] = k
     log(f"{len(novos)} palavras recuperadas, {len(marcas)} trechos de fala sem texto marcados")
     return todas, len(novos), len(marcas)
+
+
+def _norm(t):
+    return re.sub(r"[^\wÀ-ÿ]", "", (t or "").lower())
+
+
+def _ouvir(modelo, audio, a, b, prompt):
+    """Transcreve só o trecho [a, b] do áudio, sem contexto do resto do vídeo."""
+    ini, fim = max(0.0, a), min(len(audio) / TAXA, b)
+    segs, _ = modelo.transcribe(audio[int(ini * TAXA):int(fim * TAXA)], language="pt", word_timestamps=True,
+                                vad_filter=False, beam_size=5, condition_on_previous_text=False,
+                                initial_prompt=prompt)
+    out = []
+    for s in segs:
+        for w in s.words or []:
+            t = w.word.strip()
+            if not t or float(w.probability) < 0.2 or (ALUCINACOES.search(t) and float(w.probability) < 0.6):
+                continue
+            out.append({"t": t, "ini": round(ini + float(w.start), 3), "fim": round(ini + float(w.end), 3),
+                        "prob": round(float(w.probability), 3)})
+    return out
+
+
+def _repeticoes(tok):
+    """Quantos pedaços de 1 a 3 palavras aparecem repetidos logo em seguida."""
+    n = 0
+    for k in (1, 2, 3):
+        for i in range(len(tok) - 2 * k + 1):
+            if tok[i:i + k] == tok[i + k:i + 2 * k] and all(tok[i:i + k]):
+                n += 1
+    return n
+
+
+def blocos_de_fala(fala, maximo=9.0, pausa=0.6):
+    """Junta os trechos de voz em blocos de até ~9 s, quebrando nas pausas."""
+    blocos = []
+    for a, b in fala:
+        if blocos and a - blocos[-1][1] < pausa and b - blocos[-1][0] <= maximo:
+            blocos[-1][1] = b
+        else:
+            blocos.append([a, b])
+    return blocos
+
+
+def segunda_escuta(modelo, audio, palavras, prompt, hesitacao, log=print):
+    """Ouve de novo cada bloco de fala sozinho. Na transcrição do vídeo inteiro o
+    reconhecimento usa o contexto e "arruma" a fala: junta várias tentativas numa só e some
+    com repetições. Ouvindo um bloco curto sozinho ele escreve o que foi dito. Quando a
+    segunda escuta traz mais palavras ou mais repetições, ela substitui a primeira ali."""
+    fala = _fala(audio)
+    trocas = 0
+    resultado = list(palavras)
+    for a, b in blocos_de_fala(fala):
+        dentro = [p for p in resultado if a - 0.1 <= (p["ini"] + p["fim"]) / 2 <= b + 0.1]
+        try:
+            novas = _ouvir(modelo, audio, a - 0.15, b + 0.15, prompt)
+        except Exception as e:
+            log(f"segunda escuta falhou em {a:.1f}s: {e}")
+            continue
+        t1 = [_norm(p["t"]) for p in dentro]
+        t2 = [_norm(p["t"]) for p in novas]
+        if not novas or (len(t2) < len(t1) + 2 and _repeticoes(t2) <= _repeticoes(t1)):
+            continue
+        for p in novas:
+            p.update(cortada=False, destaque=False, segunda_escuta=True)
+            if hesitacao(p["t"]):
+                p.update(cortada=True, motivo="hesitação", origem="auto")
+        resultado = [p for p in resultado if p not in dentro] + novas
+        trocas += 1
+    resultado.sort(key=lambda p: (p["ini"], p["fim"]))
+    for k, p in enumerate(resultado):
+        p["i"] = k
+    log(f"segunda escuta: {trocas} trechos tinham fala escondida")
+    return resultado, trocas
+
+
+def conferir(modelo, audio, palavras, segmentos, prompt, log=print):
+    """Reescuta cada trecho que vai pro vídeo, sozinho, e passa o que ouviu pelo detector de
+    regravações (com as últimas palavras do trecho anterior como contexto). O que o detector
+    cortar ali é tentativa ou repetição escondida dentro de um trecho mantido.
+    Devolve [(ini, fim, devia, ouvi, extras)], extras = [(ini, fim, texto)]."""
+    from . import regravacoes as R
+    vivas = [p for p in palavras if not p.get("cortada")]
+    relatorio, contexto = [], []
+    for s in segmentos:
+        a, b = s["ini"], s["fim"]
+        devia = [p for p in vivas if a - 0.02 <= (p["ini"] + p["fim"]) / 2 <= b + 0.02]
+        try:
+            ouvi = _ouvir(modelo, audio, a, b, prompt)
+        except Exception as e:
+            log(f"não consegui reescutar {a:.1f}s: {e}")
+            continue
+        seq = [dict(p, origem="voce", cortada=False) for p in contexto[-6:]]
+        seq += [dict(p, cortada=False, destaque=False) for p in ouvi]
+        for k, p in enumerate(seq):
+            p["i"] = k
+        R.detectar(seq)
+        extras, atual = [], []
+        for p in seq:
+            if p.get("cortada") and p.get("origem") == "auto" and p.get("motivo") != "hesitação":
+                atual.append(p)
+            elif atual:
+                extras.append(atual)
+                atual = []
+        if atual:
+            extras.append(atual)
+        extras = [(g[0]["ini"], g[-1]["fim"], " ".join(p["t"] for p in g)) for g in extras]
+        if not devia and ouvi:
+            extras.append((a, b, " ".join(p["t"] for p in ouvi) + " (trecho sem texto)"))
+        if extras:
+            relatorio.append((a, b, " ".join(p["t"] for p in devia), " ".join(p["t"] for p in ouvi), extras))
+        contexto = [p for p in seq if not p.get("cortada")] or contexto
+    return relatorio

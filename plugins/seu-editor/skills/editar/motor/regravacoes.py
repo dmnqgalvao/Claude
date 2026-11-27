@@ -82,7 +82,7 @@ def detectar(palavras, janela_palavras=60, janela_s=30.0, minimo=3):
                 trecho = seq[a:b]
                 if any([_marcar(p, MOTIVO) for p in trecho]):
                     achados.append((MOTIVO, trecho[0]["i"], trecho[-1]["i"], " ".join(p["t"] for p in trecho)))
-                j = b + k
+                j = max(j + 1, b + k)   # sempre anda (b pode voltar antes de j)
                 continue
         j += 1
 

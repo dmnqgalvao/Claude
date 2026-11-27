@@ -131,9 +131,10 @@ def calcular_segmentos(proj):
         if fim - ini < 0.04:
             continue
         arq = arquivo_de(proj, (ini + fim) / 2)
-        # pedacinho sem nenhuma palavra (sobra de fala errada entre dois cortes): sai
+        # trecho sem nenhuma palavra num arquivo de fala (sobra de fala errada entre dois
+        # cortes, tentativa que o reconhecimento não escreveu): sai
         modo = arqs[arq].get("modo") if arq < len(arqs) else "fala"
-        if palavras and modo != "imagem" and fim - ini < 0.45 and not any(
+        if palavras and modo != "imagem" and not any(
                 ini - 0.02 <= (p["ini"] + p["fim"]) / 2 <= fim + 0.02 for p in vivas):
             continue
         saida.append({"ini": round(ini, 3), "fim": round(fim, 3), "out": round(acumulado, 4), "vel": vel, "zoom": 1.0,
@@ -350,8 +351,8 @@ def montar_plano(proj):
     so_imagem = [(a["ini"], a["fim"]) for a in proj.get("arquivos") or [] if a.get("modo") == "imagem"]
     mantidas = []
     for p in proj.get("palavras", []):
-        if p.get("cortada"):
-            continue
+        if p.get("cortada") or p.get("sem_legenda"):
+            continue   # sem_legenda: a palavra fica no vídeo, só não aparece na legenda
         meio = (p["ini"] + p["fim"]) / 2
         if any(a <= meio < b for a, b in so_imagem):
             continue

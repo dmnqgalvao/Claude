@@ -657,6 +657,49 @@ def cmd_versao(a):
     print(json.dumps(V.checar(dados_dir(), forcar=a.agora), ensure_ascii=False))
 
 
+def cmd_sem_legenda(a):
+    proj = P.carregar(a.projeto)
+    idx = intervalos(a.indices, len(proj["palavras"]))
+    for i in idx:
+        if a.volta:
+            proj["palavras"][i].pop("sem_legenda", None)
+        else:
+            proj["palavras"][i]["sem_legenda"] = True
+    P.salvar(a.projeto, proj)
+    print(f"{len(idx)} palavras " + ("voltaram pra legenda" if a.volta else "fora da legenda (continuam no vídeo)"))
+
+
+def cmd_conferir(a):
+    """Reescuta o que vai pro vídeo e acha fala escondida (repetição, tentativa que o
+    reconhecimento juntou). Com --corrigir, corta esses pedaços na linha do tempo."""
+    from faster_whisper import WhisperModel, decode_audio
+    from . import recuperar as RC
+    from . import transcrever as T
+    proj = P.carregar(a.projeto)
+    plano = PL.montar_plano(proj)
+    P.escrever_estado(a.projeto, tarefa="conferindo", mensagem="reescutando o que vai pro vídeo")
+    modelo = WhisperModel(a.modelo, device="auto", compute_type="int8",
+                          download_root=os.path.join(dados_dir(), "modelos"))
+    audio = decode_audio(P.midia_previa(proj), sampling_rate=16000)
+    rel = RC.conferir(modelo, audio, proj["palavras"], plano["segmentos"], T.PROMPT_BASE,
+                      log=lambda m: print(m, file=sys.stderr))
+    novos = []
+    for ini, fim, devia, ouvi, extras in rel:
+        print(f"[{ini:.2f}-{fim:.2f}]\n   devia: {devia}\n   ouvi : {ouvi}")
+        for x, y, txt in extras:
+            print(f"   sobra: {x:.2f}-{y:.2f} \"{txt}\"")
+            novos.append({"ini": round(max(ini, x - 0.03), 3), "fim": round(min(fim, y + 0.03), 3), "motivo": "reescuta"})
+    if a.corrigir and novos:
+        proj = P.carregar(a.projeto)
+        proj.setdefault("cortes_tempo", []).extend(novos)
+        proj["cortes_tempo"].sort(key=lambda c: c["ini"])
+        P.salvar(a.projeto, proj)
+        print(f"{len(novos)} pedaços cortados na linha do tempo (motivo reescuta)")
+    elif not rel:
+        print("tudo confere: o que vai pro vídeo é o que está no texto")
+    P.escrever_estado(a.projeto, tarefa=None, mensagem="conferência pronta")
+
+
 def cmd_revisar(a):
     from . import regravacoes as R
     proj = P.carregar(a.projeto)
@@ -838,6 +881,10 @@ def main(argv=None):
     s = sub.add_parser("entregar"); s.add_argument("projeto"); s.set_defaults(f=cmd_entregar)
     s = sub.add_parser("revisao"); s.add_argument("projeto"); s.add_argument("--nova-rodada", action="store_true")
     s.set_defaults(f=cmd_revisao)
+    s = sub.add_parser("sem-legenda"); s.add_argument("projeto"); s.add_argument("indices", nargs="+")
+    s.add_argument("--volta", action="store_true"); s.set_defaults(f=cmd_sem_legenda)
+    s = sub.add_parser("conferir"); s.add_argument("projeto"); s.add_argument("--corrigir", action="store_true")
+    s.add_argument("--modelo", default="large-v3-turbo"); s.set_defaults(f=cmd_conferir)
     s = sub.add_parser("revisar"); s.add_argument("projeto"); s.add_argument("--so-avisos", action="store_true")
     s.set_defaults(f=cmd_revisar)
     s = sub.add_parser("rosto"); s.add_argument("projeto"); s.add_argument("--refazer", action="store_true")

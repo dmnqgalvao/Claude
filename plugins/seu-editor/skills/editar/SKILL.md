@@ -426,6 +426,19 @@ e sugira começar o vídeo nele.
 Depois de montar, gere a prévia (`ed exportar "$PRJ" --previa`), olhe 3 ou 4 quadros e
 corrija o que ficou poluído, ilegível ou fora do lugar antes de mostrar pra pessoa.
 
+**Conferência de ouvido (obrigatória antes de passar a vez e antes do vídeo final).** O
+reconhecimento às vezes "arruma" a fala e junta várias tentativas numa só, e aí a
+tentativa errada fica escondida dentro de um trecho que parece certo no texto. Rode
+`ed conferir "$PRJ" --corrigir`: ele reescuta cada trecho que vai pro vídeo, sozinho, passa
+o que ouviu pelo detector de regravações e corta na linha do tempo o que sobrar (motivo
+"reescuta"), sempre ficando com a última tentativa. Leia a saída: cada caso mostra o que
+devia ter e o que ele ouviu. Se uma "sobra" for fala de propósito, tire o corte dela de
+`cortes_tempo` (ou peça pra pessoa clicar no trecho na linha do tempo). Demora mais ou menos
+o tempo do vídeo. Rode de novo depois que a pessoa mexer nos cortes.
+
+Palavra que fica no vídeo mas não deve aparecer na legenda (nome repetido, palavra que o
+texto na tela já mostra): `ed sem-legenda "$PRJ" 40-42` (`--volta` desfaz).
+
 **Passar a vez pra pessoa (sempre, ao fim de cada rodada de edição).** Rode
 `ed entregar "$PRJ"` e mande no chat, com o endereço da interface, os 4 passos:
 1. "a primeira edição está pronta em <endereço>"
