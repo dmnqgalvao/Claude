@@ -125,10 +125,17 @@ def calcular_segmentos(proj):
     vel = max(0.5, min(2.0, float(aj.get("velocidade", 1.0))))
     saida = []
     acumulado = 0.0
+    vivas = [p for p in palavras if not p.get("cortada")]
+    arqs = proj.get("arquivos") or []
     for ini, fim in segs:
         if fim - ini < 0.04:
             continue
         arq = arquivo_de(proj, (ini + fim) / 2)
+        # pedacinho sem nenhuma palavra (sobra de fala errada entre dois cortes): sai
+        modo = arqs[arq].get("modo") if arq < len(arqs) else "fala"
+        if palavras and modo != "imagem" and fim - ini < 0.45 and not any(
+                ini - 0.02 <= (p["ini"] + p["fim"]) / 2 <= fim + 0.02 for p in vivas):
+            continue
         saida.append({"ini": round(ini, 3), "fim": round(fim, 3), "out": round(acumulado, 4), "vel": vel, "zoom": 1.0,
                       "arq": arq})
         acumulado += (fim - ini) / vel
@@ -350,6 +357,20 @@ def montar_plano(proj):
             continue
         si = _segmento_de(p, segs) if segs else None
         if si is None:
+            continue
+        bruto = p["t"].strip()
+        ant = mantidas[-1] if mantidas else None
+        # o reconhecimento quebra número, dinheiro e palavra com hífen em pedaços
+        # ("R" "$" "3" ".520" ",00", "100" "%", "matéria" "-prima"): junta de volta
+        if (ant is not None and ant["seg"] == si and p["ini"] - ant["fim_src"] < 0.3
+                and (re.match(r"^[,.%$]", bruto) or (bruto.startswith("-") and len(bruto) > 1)
+                     or (ant["bruto"].endswith("$") and bruto[:1].isdigit()))):
+            ant["bruto"] += (" " if ant["bruto"].endswith("$") and bruto[:1].isdigit() else "") + bruto
+            texto = limpar_texto(ant["bruto"], sem_pont, caixa_alta)
+            ant["t"] = texto.lower() if visual.get("minusculas") and not caixa_alta else texto
+            ant["fim_src"] = p["fim"]
+            ant["fim_out"] = round(_para_saida(p["fim"], segs, si), 3)
+            ant["destaque"] = ant["destaque"] or bool(p.get("destaque"))
             continue
         texto = limpar_texto(p["t"], sem_pont, caixa_alta)
         if visual.get("minusculas") and not caixa_alta:

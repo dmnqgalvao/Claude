@@ -1,5 +1,12 @@
 [
   {
+    "versao": "0.14.1",
+    "itens": [
+      "pedacinhos de áudio sem nenhuma palavra que sobravam entre dois cortes saem do vídeo",
+      "números, dinheiro e porcentagem inteiros na legenda: R$ 3.520,00 e 100% em vez de R $ 3 .520 ,00 e 100 %"
+    ]
+  },
+  {
     "versao": "0.14.0",
     "itens": [
       "o editor relê os trechos de fala que ficaram sem texto (começo errado, repetição) e corta o que sobrar",
