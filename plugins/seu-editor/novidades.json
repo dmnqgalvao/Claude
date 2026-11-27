@@ -1,5 +1,12 @@
 [
   {
+    "versao": "0.15.1",
+    "itens": [
+      "corte de erros calibrado numa gravação real de 9 minutos: a mesma frase gravada de novo minutos depois, começo largado com reticências, \"não, não, não\", palavra solta entre pausas e três ou mais tentativas seguidas",
+      "a revisão aponta frases refeitas com outras palavras mesmo quando estão longe uma da outra"
+    ]
+  },
+  {
     "versao": "0.15.0",
     "itens": [
       "o reconhecimento passa a escrever as repetições e tentativas em vez de juntar tudo numa frase só",

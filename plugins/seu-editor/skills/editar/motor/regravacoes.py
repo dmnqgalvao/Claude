@@ -25,7 +25,11 @@ PEQUENAS = {
 ENFASE = {"muito", "nada", "não", "nao", "sim", "bem", "super", "tão", "tchau", "olha", "vai", "corre"}
 
 MULETAS = {"é", "e", "eh", "tipo", "né", "ne", "assim", "digo", "aliás", "ou", "quer", "dizer", "não", "nao", "pera", "peraí"}
-FIM_FRASE = re.compile(r"[.!?…]$")
+FIM_FRASE = re.compile(r"(?<!\.\.)(?<!…)[.!?]$")       # reticências não fecham frase
+LARGADA = re.compile(r"(\.\.\.|…)$")
+QUEBRA = re.compile(r"[.!?…]$")          # onde uma frase acaba (inclusive largada)
+MURMURIO = {"não", "nao", "peraí", "pera", "calma", "droga", "ai", "errei", "denovo", "de", "novo", "gente",
+            "vou", "é", "ah", "ahn", "hum", "ok", "tá", "ta", "isso", "aí"}
 
 MOTIVO = "regravação"
 MOTIVO_GAGUEJO = "gaguejo"
@@ -53,7 +57,7 @@ def detectar(palavras, janela_palavras=60, janela_s=30.0, minimo=3):
     # 1. regravações
     j = 1
     while j < len(seq):
-        melhor = None
+        candidatos = []
         for i in range(max(0, j - janela_palavras), j):
             if seq[j]["ini"] - seq[i]["ini"] > janela_s or tok[i] != tok[j] or not tok[i]:
                 continue
@@ -62,10 +66,11 @@ def detectar(palavras, janela_palavras=60, janela_s=30.0, minimo=3):
                 k += 1
             significativas = sum(1 for x in tok[j:j + k] if x not in PEQUENAS)
             precisa = minimo if j - i <= 25 else minimo + 1
-            if k >= precisa and significativas >= 2 and (melhor is None or k > melhor[1]):
-                melhor = (i, k)
-        if melhor:
-            i, k = melhor
+            if k >= precisa and significativas >= 2:
+                candidatos.append((i, k))
+        feito = False
+        # a tentativa mais perto primeiro (é a que a pessoa largou pra recomeçar)
+        for i, k in sorted(candidatos, key=lambda c: -c[0]):
             a, b = i, j
             while a > 0 and b - 1 > a and tok[a - 1] == tok[b - 1] and tok[a - 1]:
                 a -= 1
@@ -73,18 +78,19 @@ def detectar(palavras, janela_palavras=60, janela_s=30.0, minimo=3):
             igual = k + (i - a)          # quanto da 1a tentativa a 2a repete
             tamanho = b - a              # tamanho da 1a tentativa
             # regravação: a 1a tentativa é quase toda o começo da 2a (só o finalzinho
-            # difere, que é o erro). Se difere muito, é repetição de propósito
-            # ("você precisa fazer X. você precisa fazer Y") e fica.
-            # regravação reformulada: quase todas as palavras da 1a voltam logo na 2a
+            # difere, que é o erro), ou quase todas as palavras dela voltam logo na 2a
+            # (reformulada). Se difere muito, é repetição de propósito e fica.
             seguinte = set(tok[b:b + tamanho + 6])
             volta = sum(1 for x in tok[a:b] if x in seguinte) / max(1, tamanho)
             if 0 < tamanho <= 45 and (tamanho - igual <= max(3, int(0.4 * tamanho)) or volta >= 0.75):
                 trecho = seq[a:b]
                 if any([_marcar(p, MOTIVO) for p in trecho]):
                     achados.append((MOTIVO, trecho[0]["i"], trecho[-1]["i"], " ".join(p["t"] for p in trecho)))
-                j = max(j + 1, b + k)   # sempre anda (b pode voltar antes de j)
-                continue
-        j += 1
+                j = max(j + 1, b + 1)   # sempre anda; olha de novo logo depois do recomeço (3ª tentativa)
+                feito = True
+                break
+        if not feito:
+            j += 1
 
     # 2. recomeços curtos: "o meu o meu processo", "eu acho, é, eu acho", "pri primeiro",
     #    "o meu pri o meu primeiro". A 1a tentativa (1 a 4 palavras) vem colada na 2a,
@@ -113,8 +119,10 @@ def detectar(palavras, janela_palavras=60, janela_s=30.0, minimo=3):
                     continue
                 inteira = prim == seg
                 if n == 1 and inteira:
-                    # palavra repetida: só gaguejo de palavra curta ou mal pronunciada
-                    if prim[0] in ENFASE or not (len(prim[0]) <= 3 or vivas[a].get("prob", 1) < 0.6):
+                    # palavra repetida: gaguejo de palavra curta ou mal pronunciada, ou
+                    # recomeço depois de uma pausinha ("Imagina... Imagina que")
+                    pausa = vivas[j]["ini"] - vivas[a]["fim"] > 0.25
+                    if prim[0] in ENFASE or not (pausa or len(prim[0]) <= 3 or vivas[a].get("prob", 1) < 0.6):
                         continue
                 if n == 1 and not inteira and prim[0] in PEQUENAS:
                     continue      # "pra praia", "pro programa"
@@ -137,10 +145,64 @@ def detectar(palavras, janela_palavras=60, janela_s=30.0, minimo=3):
     for k, p in enumerate(vivas):
         atual.append(p)
         prox = vivas[k + 1] if k + 1 < len(vivas) else None
-        if FIM_FRASE.search(p["t"]) or prox is None or prox["ini"] - p["fim"] > 0.9:
+        if QUEBRA.search(p["t"]) or prox is None or prox["ini"] - p["fim"] > 0.9:
             frases.append(atual)
             atual = []
     conteudo = lambda f: [x for x in (_norm(p["t"]) for p in f) if x and x not in PEQUENAS]
+    # 4. a mesma frase gravada de novo bem depois (take inteiro repetido): fica a última.
+    #    Conta como a mesma frase quando quase todas as palavras de conteúdo voltam e no
+    #    máximo uma fica de fora ("problema no coração" e "problema de visão" ficam as duas).
+    for n, fa in enumerate(frases):
+        ca = conteudo(fa)
+        if len(ca) < 2 or any(p.get("cortada") for p in fa):
+            continue
+        for fb in frases[n + 1:]:
+            if fb[0]["ini"] - fa[-1]["fim"] > 150:
+                break
+            cb = set(conteudo(fb))
+            fora = [x for x in ca if x not in cb]
+            if len(cb) >= 0.5 * len(ca) and len(fora) <= max(1, len(ca) // 6) and (len(ca) - len(fora)) / len(ca) >= 0.75:
+                if any([_marcar(p, MOTIVO) for p in fa]):
+                    achados.append((MOTIVO, fa[0]["i"], fa[-1]["i"], " ".join(p["t"] for p in fa)))
+                break
+
+    # 5. começo largado: pedacinho (até 3 palavras, ou até 6 terminando em reticências) sem
+    #    fim de frase, e uma frase depois (até 5 min, a pessoa às vezes regrava tudo) que
+    #    começa com as mesmas palavras ("O pessoa..." -> "O que fez uma pessoa")
+    def parecida(x, y):
+        return x == y or (len(x) >= 4 and len(y) >= 4 and x[:4] == y[:4])
+
+    for n, fa in enumerate(frases[:-1]):
+        largada = bool(LARGADA.search(fa[-1]["t"]))
+        if (len(fa) > (6 if largada else 3)) or (FIM_FRASE.search(fa[-1]["t"]) and not largada) \
+                or any(p.get("cortada") for p in fa):
+            continue
+        ta = [_norm(p["t"]) for p in fa]
+        for fb in frases[n + 1:]:
+            if fb[0]["ini"] - fa[-1]["fim"] > 300:
+                break
+            tb = [_norm(p["t"]) for p in fb[:len(ta) + 4]]
+            if ta and any(parecida(ta[0], x) for x in tb[:3]) and \
+                    sum(1 for x in ta if any(parecida(x, y) for y in tb)) >= max(1, len(ta) - 1):
+                if any([_marcar(p, MOTIVO) for p in fa]):
+                    achados.append((MOTIVO, fa[0]["i"], fa[-1]["i"], " ".join(p["t"] for p in fa)))
+                break
+
+    # 6. murmúrio de correção ("não, não, não", "peraí, de novo") e palavra solta entre
+    #    pausas longas ("Agora," sozinho): não é conteúdo
+    vivas = [p for p in palavras if not p.get("cortada")]
+    for n, fa in enumerate(frases):
+        if any(p.get("cortada") for p in fa):
+            continue
+        ta = [_norm(p["t"]) for p in fa]
+        antes = fa[0]["ini"] - frases[n - 1][-1]["fim"] if n else 9
+        depois = frases[n + 1][0]["ini"] - fa[-1]["fim"] if n + 1 < len(frases) else 9
+        murmurio = ta and all(x in MURMURIO for x in ta) and len(ta) <= 6
+        solta = len(fa) == 1 and not FIM_FRASE.search(fa[0]["t"]) and antes > 0.8 and depois > 0.8
+        if murmurio or solta:
+            if any([_marcar(p, MOTIVO) for p in fa]):
+                achados.append((MOTIVO, fa[0]["i"], fa[-1]["i"], " ".join(p["t"] for p in fa)))
+
     for fa, fb in zip(frases, frases[1:]):
         ca, cb = conteudo(fa), set(conteudo(fb))
         if len(ca) < 3 or fb[0]["ini"] - fa[-1]["fim"] > 6 or fa[-1]["t"].strip().endswith("?"):
@@ -171,7 +233,7 @@ def revisar(palavras):
     for k, p in enumerate(vivas):
         atual.append(p)
         prox = vivas[k + 1] if k + 1 < len(vivas) else None
-        if FIM_FRASE.search(p["t"]) or prox is None or prox["ini"] - p["fim"] > 0.9:
+        if QUEBRA.search(p["t"]) or prox is None or prox["ini"] - p["fim"] > 0.9:
             frases.append(atual)
             atual = []
     linhas = []
@@ -187,13 +249,18 @@ def revisar(palavras):
                 k += 1
             if k >= 2 and any(x not in PEQUENAS for x in tok[:k]):
                 avisos.append(f"começa igual a uma frase anterior ({' '.join(tok[:k])})")
-        # parecida com a próxima
-        if n + 1 < len(frases):
-            ca, cb = conteudo(f), set(conteudo(frases[n + 1]))
-            if len(ca) >= 2:
+        # parecida com uma frase que vem depois (até 2 min): pode ser a mesma frase refeita
+        ca = conteudo(f)
+        if len(ca) >= 2:
+            for m, fb in enumerate(frases[n + 1:], n + 1):
+                if fb[0]["ini"] - f[-1]["fim"] > 120:
+                    break
+                cb = set(conteudo(fb))
                 volta = sum(1 for x in ca if x in cb) / len(ca)
                 if volta >= 0.5:
-                    avisos.append(f"{int(volta * 100)}% das palavras voltam na frase seguinte")
+                    qual = "na frase seguinte" if m == n + 1 else f"na frase [{fb[0]['i']}-{fb[-1]['i']}]"
+                    avisos.append(f"{int(volta * 100)}% das palavras voltam {qual}: pode ser a mesma frase refeita")
+                    break
         # frase que termina sem ponto e com pausa: pode ser tentativa abandonada
         prox = frases[n + 1][0] if n + 1 < len(frases) else None
         if prox is not None and not FIM_FRASE.search(f[-1]["t"]) and prox["ini"] - f[-1]["fim"] > 0.9 and len(f) <= 12:
